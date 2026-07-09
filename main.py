@@ -1,67 +1,62 @@
 import streamlit as st
 import requests
 import datetime
-import time
 
 # --- CONFIGURAÇÕES ---
-URL_BASE = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
-URL_TOKENS = f"{URL_BASE}/tokens.json"
-URL_PEDIDOS = f"{URL_BASE}/pedidos.json"
-URL_SOLICITACOES = f"{URL_BASE}/solicitacoes.json"
-
-# --- FUNÇÕES ---
-def validar_usuario(nome):
-    # Verifica se o usuário tem token válido no Firebase
-    resp = requests.get(URL_TOKENS).json()
-    if resp and nome in resp:
-        expira = datetime.datetime.fromisoformat(resp[nome].get('expira'))
-        return datetime.datetime.now() < expira
-    return False
+BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+URL_SOLICITACOES = f"{BASE_URL}/solicitacoes.json"
+URL_TOKENS = f"{BASE_URL}/tokens.json"
 
 # --- INTERFACE ---
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 
-if not st.session_state.autenticado:
-    st.subheader("🔑 Acesso ao Karaoke")
-    nome = st.text_input("Nome de utilizador:")
+# --- PAINEL DO ADMIN ---
+if st.session_state.get('nome') == "ADMIN":
+    st.header("⚙️ Painel de Aprovação")
+    if st.button("🔄 Refresh de Pedidos"): st.rerun()
     
-    if st.button("Solicitar Acesso"):
-        if nome:
-            requests.put(f"{URL_SOLICITACOES}/{nome}.json", json={"status": "pendente", "timestamp": str(datetime.datetime.now())})
-            st.info("Pedido enviado! Aguarde a aprovação do Administrador...")
-        else:
-            st.warning("Insira o seu nome.")
+    solics = requests.get(URL_SOLICITACOES).json()
+    if solics:
+        for key, info in solics.items():
+            col1, col2, col3 = st.columns([2, 2, 1])
+            col1.write(info['usuario'])
+            
+            if col2.button("✅ Aprovar", key=f"apr_{key}"):
+                # Gera token de 3h e aprova
+                expira = (datetime.datetime.now() + datetime.timedelta(hours=3)).isoformat()
+                requests.patch(f"{BASE_URL}/tokens/{info['usuario']}.json", 
+                               json={"senha": "123", "expira": expira})
+                requests.patch(f"{URL_SOLICITACOES}/{key}.json", json={"estado": "Aprovado"})
+                st.rerun()
+                
+            if col3.button("❌ Recusar", key=f"rec_{key}"):
+                requests.patch(f"{URL_SOLICITACOES}/{key}.json", json={"estado": "Recusado"})
+                st.rerun()
+    else: st.write("Nenhum pedido pendente.")
 
-    # Loop de verificação (o cliente fica aqui até ser aprovado)
-    if st.button("Verificar Aprovação"):
-        if validar_usuario(nome):
-            st.session_state.nome = nome
-            st.session_state.autenticado = True
-            st.rerun()
-        else:
-            st.error("Ainda não aprovado ou acesso expirado.")
+# --- ÁREA DO CLIENTE ---
+elif not st.session_state.autenticado:
+    st.subheader("🔑 Acesso ao Karaoke")
+    nome = st.text_input("Seu Nome:")
+    if st.button("Solicitar Acesso"):
+        requests.post(URL_SOLICITACOES, json={"usuario": nome, "estado": "Pendente"})
+        st.session_state.nome_temp = nome
+        st.session_state.aguardando = True
+
+    if st.session_state.get('aguardando'):
+        st.info(f"Olá {st.session_state.nome_temp}, aguardando aprovação...")
+        # Lógica de espera (Refresh automático a cada 5s)
+        import time; time.sleep(2)
+        solics = requests.get(URL_SOLICITACOES).json()
+        for key, info in (solics or {}).items():
+            if info['usuario'] == st.session_state.nome_temp:
+                if info.get('estado') == "Aprovado":
+                    st.session_state.autenticado = True
+                    st.session_state.nome = st.session_state.nome_temp
+                    st.rerun()
+                elif info.get('estado') == "Recusado":
+                    st.error("Seu pedido foi recusado.")
+                    st.session_state.aguardando = False
 
 else:
-    # --- PAINEL DO OPERADOR ---
-    if st.session_state.nome == "ADMIN":
-        st.header("⚙️ Painel do Administrador")
-        if st.button("🔄 Refresh"): st.rerun()
-        
-        solics = requests.get(URL_SOLICITACOES).json()
-        if solics:
-            for user, dados in solics.items():
-                col1, col2, col3 = st.columns([2,1,1])
-                col1.write(f"Utilizador: **{user}**")
-                if col2.button("Aprovar", key=f"ap_{user}"):
-                    # Gera senha de 3h
-                    expira = (datetime.datetime.now() + datetime.timedelta(hours=3)).isoformat()
-                    requests.put(f"{URL_TOKENS}/{user}.json", json={"senha": "123", "expira": expira})
-                    requests.delete(f"{URL_SOLICITACOES}/{user}.json")
-                    st.rerun()
-                if col3.button("Recusar", key=f"re_{user}"):
-                    requests.put(f"{URL_SOLICITACOES}/{user}.json", json={"status": "recusado"})
-                    st.rerun()
-        else:
-            st.write("Nenhum pedido pendente.")
-    else:
-        st.write(f"Bem-vindo {st.session_state.nome}! Pode começar a cantar.")
+    st.success(f"Bem-vindo, {st.session_state.nome}! Acesso liberado.")
