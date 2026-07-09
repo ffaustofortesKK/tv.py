@@ -12,6 +12,9 @@ URL_SOM_PALMAS = "https://www.soundjay.com/misc/sounds/applause-2.mp3"
 # --- FUNÇÃO DE VALIDAÇÃO ---
 def validar_senha_no_firebase(nome, senha_input):
     try:
+        # Se for ADMIN, ignora a senha ou coloque uma senha fixa aqui
+        if nome == "ADMIN": return True 
+        
         resp = requests.get(URL_FIREBASE_TOKENS)
         dados = resp.json()
         if dados and nome in dados:
@@ -44,37 +47,49 @@ if not st.session_state.autenticado:
             if st.button("Solicitar Acesso"):
                 requests.post(URL_FIREBASE_SOLICITACOES, 
                               json={"usuario": nome_usuario, "timestamp": str(datetime.datetime.now())})
-                st.info("Pedido enviado! Aguarde o operador gerar o seu código.")
+                st.info("Pedido enviado! Aguarde o operador.")
 else:
-    # --- APP DE KARAOKE (APÓS LOGIN) ---
-    st.title(f"Bem-vindo, {st.session_state.nome}!")
-    
-    busca = st.text_input("🔍 Pesquisar Música no catálogo:")
-    escolha = None
-    
-    if busca:
-        try:
-            resp = requests.get(URL_FIREBASE_CATALOGO, timeout=5)
-            dados = resp.json()
-            cat = list(dados.keys()) if isinstance(dados, dict) else dados
-            resultados = [m for m in cat if busca.lower() in m.lower()]
-            escolha = st.selectbox("Selecione:", resultados)
-        except: 
-            st.error("Erro ao carregar catálogo.")
-
-    if escolha:
-        st.write(f"Música: **{escolha}**")
-        if st.button("Confirmar Pedido"):
-            requests.post(URL_FIREBASE_PEDIDOS, json={"cantor": st.session_state.nome, "musica": escolha})
-            st.audio(URL_SOM_PALMAS, autoplay=True)
-            st.success("Pedido enviado!")
+    # --- PAINEL DO OPERADOR (ADMIN) ---
+    if st.session_state.nome == "ADMIN":
+        st.header("⚙️ Painel do Operador")
+        pedidos = requests.get(URL_FIREBASE_PEDIDOS).json()
+        st.write("Fila de Músicas:", pedidos)
+        
+        if st.button("Limpar Fila de Pedidos"):
+            requests.delete(URL_FIREBASE_PEDIDOS)
+            st.success("Fila limpa!")
             st.rerun()
+    
+    # --- APP DE KARAOKE (PARA CLIENTES) ---
+    else:
+        st.title(f"Bem-vindo, {st.session_state.nome}!")
+        
+        busca = st.text_input("🔍 Pesquisar Música no catálogo:")
+        escolha = None
+        
+        if busca:
+            try:
+                resp = requests.get(URL_FIREBASE_CATALOGO, timeout=5)
+                dados = resp.json()
+                cat = list(dados.keys()) if isinstance(dados, dict) else dados
+                resultados = [m for m in cat if busca.lower() in m.lower()]
+                escolha = st.selectbox("Selecione:", resultados)
+            except: 
+                st.error("Erro ao carregar catálogo.")
 
-    st.divider()
-    st.subheader("Manual")
-    pedido_manual = st.text_input("Não achou? Digite o nome da música:")
-    if st.button("Confirmar Pedido Manual"):
-        if pedido_manual:
-            requests.post(URL_FIREBASE_PEDIDOS, json={"cantor": st.session_state.nome, "musica": pedido_manual, "status": "manual"})
-            st.warning("O seu pedido foi enviado, mas verifique se a música existe no sistema.")
-            st.balloons()
+        if escolha:
+            st.write(f"Música: **{escolha}**")
+            if st.button("Confirmar Pedido"):
+                requests.post(URL_FIREBASE_PEDIDOS, json={"cantor": st.session_state.nome, "musica": escolha})
+                st.audio(URL_SOM_PALMAS, autoplay=True)
+                st.success("Pedido enviado!")
+                st.rerun()
+
+        st.divider()
+        st.subheader("Manual")
+        pedido_manual = st.text_input("Não achou? Digite o nome da música:")
+        if st.button("Confirmar Pedido Manual"):
+            if pedido_manual:
+                requests.post(URL_FIREBASE_PEDIDOS, json={"cantor": st.session_state.nome, "musica": pedido_manual, "status": "manual"})
+                st.warning("Pedido enviado para análise.")
+                st.balloons()
