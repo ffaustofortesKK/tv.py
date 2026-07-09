@@ -2,22 +2,23 @@ import streamlit as st
 import requests
 import datetime
 
-# Função para validar a senha no Firebase
+# --- CONFIGURAÇÕES ---
+URL_FIREBASE_PEDIDOS = "https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos.json"
+URL_FIREBASE_CATALOGO = "https://grupoffkaraoke-default-rtdb.firebaseio.com/catalogo.json"
+URL_SOM_PALMAS = "https://www.soundjay.com/misc/sounds/applause-2.mp3"
+
 def validar_senha_no_firebase(nome, senha_input):
     try:
-        # Busca tokens no seu Firebase
         resp = requests.get("https://grupoffkaraoke-default-rtdb.firebaseio.com/tokens.json")
         dados = resp.json()
         if dados and nome in dados:
             token_data = dados[nome]
-            # Verifica se a senha bate e se não expirou
-            if token_data['senha'] == senha_input:
-                expira = datetime.datetime.fromisoformat(token_data['expira'])
+            if token_data.get('senha') == senha_input:
+                expira = datetime.datetime.fromisoformat(token_data.get('expira'))
                 if datetime.datetime.now() < expira:
                     return True
         return False
-    except:
-        return False
+    except: return False
 
 # --- Lógica de Entrada ---
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
@@ -35,9 +36,37 @@ if not st.session_state.autenticado:
         else:
             st.error("Código inválido ou expirado!")
             if st.button("Solicitar Acesso"):
-                # Envia o nome para o nó 'solicitacoes' no Firebase
                 requests.post("https://grupoffkaraoke-default-rtdb.firebaseio.com/solicitacoes.json", 
                               json={"usuario": nome_usuario, "timestamp": str(datetime.datetime.now())})
-                st.info("Pedido enviado! Aguarde o operador gerar o seu código.")
+                st.info("Pedido enviado! Aguarde o operador.")
 else:
-    # ... (AQUI VAI O SEU CÓDIGO DO KARAOKE QUE JÁ TEMOS)
+    # --- AQUI COMEÇA O SEU APP DE KARAOKE ---
+    st.title(f"Bem-vindo, {st.session_state.nome}!")
+    
+    busca = st.text_input("🔍 Pesquisar Música no catálogo:")
+    escolha = None
+    if busca:
+        try:
+            resp = requests.get(URL_FIREBASE_CATALOGO, timeout=5)
+            dados = resp.json()
+            cat = list(dados.keys()) if isinstance(dados, dict) else dados
+            resultados = [m for m in cat if busca.lower() in m.lower()]
+            escolha = st.selectbox("Selecione:", resultados)
+        except: escolha = None
+
+    if escolha:
+        st.write(f"Música: **{escolha}**")
+        if st.button("Confirmar Pedido"):
+            requests.post(URL_FIREBASE_PEDIDOS, json={"cantor": st.session_state.nome, "musica": escolha})
+            st.audio(URL_SOM_PALMAS, autoplay=True)
+            st.success("Pedido enviado!")
+            st.rerun()
+
+    st.divider()
+    st.subheader("Manual")
+    pedido_manual = st.text_input("Não achou? Digite o nome:")
+    if st.button("Confirmar Pedido Manual"):
+        if pedido_manual:
+            requests.post(URL_FIREBASE_PEDIDOS, json={"cantor": st.session_state.nome, "musica": pedido_manual, "status": "manual"})
+            st.warning("O seu pedido foi enviado, mas nem todas as músicas existem em Karaoke.")
+            st.balloons()
