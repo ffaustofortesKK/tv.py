@@ -3,90 +3,86 @@ import requests
 import datetime
 
 # --- CONFIGURAÇÕES ---
-URL_FIREBASE_TOKENS = "https://grupoffkaraoke-default-rtdb.firebaseio.com/tokens.json"
-URL_FIREBASE_PEDIDOS = "https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos.json"
-URL_FIREBASE_CATALOGO = "https://grupoffkaraoke-default-rtdb.firebaseio.com/catalogo.json"
-URL_FIREBASE_SOLICITACOES = "https://grupoffkaraoke-default-rtdb.firebaseio.com/solicitacoes.json"
-URL_SOM_PALMAS = "https://www.soundjay.com/misc/sounds/applause-2.mp3"
+BASE_URL = "https://grupoffkaraoke-default-rtdb.firebaseio.com"
+URL_SOLICITACOES = f"{BASE_URL}/solicitacoes.json"
+URL_TOKENS = f"{BASE_URL}/tokens.json"
 
-# --- FUNÇÕES ---
-def validar_senha_no_firebase(nome, senha_input):
-    if nome == "ADMIN": return True
-    try:
-        resp = requests.get(URL_FIREBASE_TOKENS)
-        dados = resp.json()
-        if dados and nome in dados:
-            if dados[nome].get('senha') == senha_input:
-                expira = datetime.datetime.fromisoformat(dados[nome].get('expira'))
-                return datetime.datetime.now() < expira
-        return False
-    except: return False
-
-# --- INTERFACE ---
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 
-if not st.session_state.autenticado:
-    st.subheader("🔑 Acesso ao Karaoke")
-    nome_usuario = st.text_input("Nome:")
-    senha_usuario = st.text_input("Código de Acesso:", type="password")
+# --- PAINEL DO ADMIN ---
+def render_admin():
+    st.header("⚙️ Painel do Operador")
+    if st.button("🔄 Refresh Manual"): st.rerun()
     
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("Entrar"):
-            if validar_senha_no_firebase(nome_usuario, senha_usuario):
-                st.session_state.nome = nome_usuario
-                st.session_state.autenticado = True
-                st.rerun()
-            else:
-                st.error("Código inválido ou expirado!")
-    with col2:
-        if st.button("Registar / Solicitar Acesso"):
-            if nome_usuario:
-                requests.post(URL_FIREBASE_SOLICITACOES, 
-                              json={"usuario": nome_usuario, "timestamp": str(datetime.datetime.now())})
-                st.success("Pedido enviado! Aguarde o operador.")
-            else:
-                st.warning("Digite o seu nome primeiro!")
-else:
-    # --- PAINEL DO OPERADOR ---
-    if st.session_state.nome == "ADMIN":
-        st.header("⚙️ Painel do Operador")
-        
-        st.subheader("📩 Solicitações")
-        try:
-            solics = requests.get(URL_FIREBASE_SOLICITACOES).json()
-            st.write(solics if solics else "Nenhuma solicitação.")
-        except: st.write("Erro ao ler solicitações.")
-        
-        st.subheader("🎵 Pedidos")
-        try:
-            peds = requests.get(URL_FIREBASE_PEDIDOS).json()
-            st.write(peds if peds else "Fila vazia.")
-        except: st.write("Erro ao ler pedidos.")
-        
-        if st.button("Limpar Tudo"):
-            requests.delete(URL_FIREBASE_SOLICITACOES)
-            requests.delete(URL_FIREBASE_PEDIDOS)
-            st.rerun()
-    else:
-        # --- APP DO CLIENTE ---
-        st.title(f"Bem-vindo, {st.session_state.nome}!")
-        busca = st.text_input("🔍 Pesquisar Música:")
-        escolha = None
-        
-        if busca:
-            try:
-                resp = requests.get(URL_FIREBASE_CATALOGO, timeout=5)
-                dados = resp.json()
-                cat = list(dados.keys()) if isinstance(dados, dict) else dados
-                resultados = [m for m in cat if busca.lower() in m.lower()]
-                escolha = st.selectbox("Selecione:", resultados)
-            except: st.error("Erro ao carregar catálogo.")
+    solics = requests.get(URL_SOLICITACOES).json()
+    if not solics:
+        st.write("Nenhuma solicitação pendente.")
+        return
 
-        if escolha:
-            st.write(f"Música: **{escolha}**")
-            if st.button("Confirmar Pedido"):
-                requests.post(URL_FIREBASE_PEDIDOS, json={"cantor": st.session_state.nome, "musica": escolha})
-                st.audio(URL_SOM_PALMAS, autoplay=True)
-                st.success("Pedido enviado!")
+    # Cabeçalho da Planilha
+    col_head1, col_head2, col_head3 = st.columns([2, 2, 1])
+    col_head1.write("**Utilizador**")
+    col_head2.write("**Ação/Status**")
+    col_head3.write("**Código**")
+
+    for key, info in solics.items():
+        usuario = info.get('usuario')
+        estado = info.get('estado', 'Pendente')
+        
+        c1, c2, c3 = st.columns([2, 2, 1])
+        c1.write(f"👤 {usuario}")
+        
+        if estado == "Pendente":
+            # Campos para gerar o código
+            codigo_gerado = c3.text_input("Cod", key=f"cod_{key}", value="1234")
+            if c2.button("✅ Aprovar", key=f"apr_{key}"):
+                # Grava o token
+                expira = (datetime.datetime.now() + datetime.timedelta(hours=3)).isoformat()
+                requests.patch(f"{URL_TOKENS}/{usuario}.json", json={"senha": codigo_gerado, "expira": expira})
+                # Atualiza estado do pedido
+                requests.patch(f"{URL_SOLICITACOES}/{key}.json", json={"estado": "Aprovado"})
                 st.rerun()
+            if c2.button("❌ Recusar", key=f"rec_{key}"):
+                requests.patch(f"{URL_SOLICITACOES}/{key}.json", json={"estado": "Recusado"})
+                st.rerun()
+        else:
+            c2.write(f"**{estado}**")
+
+# --- ÁREA DO CLIENTE ---
+def render_cliente():
+    if not st.session_state.autenticado:
+        st.subheader("🔑 Acesso ao Karaoke")
+        nome = st.text_input("Nome:")
+        
+        if 'pendente' not in st.session_state:
+            if st.button("Solicitar Acesso"):
+                requests.post(URL_SOLICITACOES, json={"usuario": nome, "estado": "Pendente"})
+                st.session_state.pendente = nome
+                st.rerun()
+        else:
+            st.info(f"Olá {st.session_state.pendente}, aguardando aprovação do operador...")
+            if st.button("🔄 Verificar Acesso"):
+                solics = requests.get(URL_SOLICITACOES).json()
+                for key, info in (solics or {}).items():
+                    if info.get('usuario') == st.session_state.pendente:
+                        if info.get('estado') == "Aprovado":
+                            st.session_state.autenticado = True
+                            st.session_state.nome = st.session_state.pendente
+                            del st.session_state.pendente
+                            st.rerun()
+                        elif info.get('estado') == "Recusado":
+                            st.error("Seu pedido foi recusado pelo operador.")
+                            del st.session_state.pendente
+                            st.rerun()
+    else:
+        st.success(f"Bem-vindo, {st.session_state.nome}!")
+        # Lógica de Karaoke aqui...
+
+# --- LÓGICA PRINCIPAL ---
+nome_input = st.sidebar.text_input("Nome para Login (ADMIN se for você)")
+senha_input = st.sidebar.text_input("Senha", type="password")
+
+if nome_input == "ADMIN" and senha_input == "1234":
+    render_admin()
+else:
+    render_cliente()
