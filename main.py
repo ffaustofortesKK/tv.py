@@ -7,6 +7,7 @@ URL_FIREBASE_TOKENS = "https://grupoffkaraoke-default-rtdb.firebaseio.com/tokens
 URL_FIREBASE_PEDIDOS = "https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos.json"
 URL_FIREBASE_CATALOGO = "https://grupoffkaraoke-default-rtdb.firebaseio.com/catalogo.json"
 URL_FIREBASE_SOLICITACOES = "https://grupoffkaraoke-default-rtdb.firebaseio.com/solicitacoes.json"
+URL_SOM_PALMAS = "https://www.soundjay.com/misc/sounds/applause-2.mp3"
 
 # --- FUNÇÕES ---
 def validar_senha_no_firebase(nome, senha_input):
@@ -51,7 +52,6 @@ else:
     if st.session_state.nome == "ADMIN":
         st.header("⚙️ Painel do Operador")
         
-        # Leitura forçada do Firebase para depuração
         st.subheader("📩 Solicitações")
         try:
             solics = requests.get(URL_FIREBASE_SOLICITACOES).json()
@@ -72,5 +72,21 @@ else:
         # --- APP DO CLIENTE ---
         st.title(f"Bem-vindo, {st.session_state.nome}!")
         busca = st.text_input("🔍 Pesquisar Música:")
+        escolha = None
+        
         if busca:
-            # ... (código de busca que você já tinha)
+            try:
+                resp = requests.get(URL_FIREBASE_CATALOGO, timeout=5)
+                dados = resp.json()
+                cat = list(dados.keys()) if isinstance(dados, dict) else dados
+                resultados = [m for m in cat if busca.lower() in m.lower()]
+                escolha = st.selectbox("Selecione:", resultados)
+            except: st.error("Erro ao carregar catálogo.")
+
+        if escolha:
+            st.write(f"Música: **{escolha}**")
+            if st.button("Confirmar Pedido"):
+                requests.post(URL_FIREBASE_PEDIDOS, json={"cantor": st.session_state.nome, "musica": escolha})
+                st.audio(URL_SOM_PALMAS, autoplay=True)
+                st.success("Pedido enviado!")
+                st.rerun()
