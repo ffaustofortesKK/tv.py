@@ -2,34 +2,48 @@ import streamlit as st
 import requests
 import time
 
-st.set_page_config(page_title="FF KARAOKE - TV", layout="wide")
+# Configuração da página para modo tela cheia
+st.set_page_config(page_title="TV KARAOKE", layout="wide")
 
-# Ocultar elementos padrão do Streamlit para modo TV
+# Ocultar o menu e o rodapé do Streamlit para parecer uma TV
 st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
-query_params = st.query_params
-slug = query_params.get("prestador", "geral")
+# Captura o slug via URL: ?prestador=...
+params = st.query_params
+slug = params.get("prestador")
+
+if not slug:
+    st.error("❌ TV sem prestador configurado. Use: ?prestador=seu-slug-aqui")
+    st.stop()
+
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 
 display = st.empty()
 
+# Loop de monitoramento da TV
 while True:
     try:
         response = requests.get(URL_STATUS, timeout=5)
         if response.status_code == 200:
-            status = response.json()
+            data = response.json()
             
-            if status and status.get("acao") == "contagem":
+            if data and data.get("acao") == "contagem":
+                # Exibição quando há um pedido ativo
                 display.markdown(f"""
-                    <div style='text-align: center; border: 5px solid yellow; padding: 40px; background-color: #111;'>
-                        <h1 style='color: yellow; font-size: 80px;'>SOLTA A VOZ!</h1>
-                        <h2 style='color: white; font-size: 60px;'>CANTOR: {status.get('cantor', '').upper()}</h2>
-                        <h3 style='color: #00FF00; font-size: 50px;'>MÚSICA: {status.get('musica', '').upper()}</h3>
+                    <div style='text-align: center; border: 10px solid #FFD700; padding: 100px; background: #000; border-radius: 20px;'>
+                        <h1 style='color: #FFD700; font-size: 120px;'>SOLTA A VOZ!</h1>
+                        <h2 style='color: white; font-size: 90px;'>{data.get('cantor', '').upper()}</h2>
+                        <h3 style='color: #00FF00; font-size: 70px;'>🎵 {data.get('musica', '').upper()}</h3>
                     </div>
                 """, unsafe_allow_html=True)
             else:
-                display.markdown("<h1 style='text-align: center; color: #555; margin-top: 100px;'>AGUARDANDO NOVO CANTOR...</h1>", unsafe_allow_html=True)
+                # Exibição em espera
+                display.markdown("""
+                    <div style='text-align: center; margin-top: 200px;'>
+                        <h1 style='color: #555; font-size: 80px;'>AGUARDANDO NOVO CANTOR...</h1>
+                    </div>
+                """, unsafe_allow_html=True)
     except:
-        display.write("Aguardando conexão...")
+        display.write("Aguardando sinal do Firebase...")
         
-    time.sleep(2)
+    time.sleep(2) # Verifica a cada 2 segundos
