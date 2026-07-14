@@ -8,8 +8,9 @@ st.set_page_config(page_title="FF KARAOKE - TV", layout="wide")
 # Ocultar elementos padrão do Streamlit para modo TV
 st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
-# Captura o slug via URL: ?prestador=...
+# A forma correta de capturar parâmetros no Streamlit atual
 params = st.query_params
+# Usar .get() é seguro; se não existir, retorna None
 slug = params.get("prestador")
 
 # Verificação de segurança: se não houver slug, não tenta conectar ao Firebase
@@ -18,6 +19,7 @@ if not slug:
     st.write("Certifique-se de que o link contém: `?prestador=seu-slug-aqui`")
     st.stop()
 
+# URL base do Firebase
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 
 # Área de exibição dinâmica
@@ -30,8 +32,8 @@ while True:
         if response.status_code == 200:
             status = response.json()
             
-            # Verifica se existe um status e se a ação é 'contagem'
-            if status and isinstance(status, dict) and status.get("acao") == "contagem":
+            # Verifica se status é um dicionário e se contém a ação
+            if isinstance(status, dict) and status.get("acao") == "contagem":
                 display.markdown(f"""
                     <div style='text-align: center; border: 10px solid #FFD700; padding: 60px; background-color: #111; border-radius: 20px;'>
                         <h1 style='color: yellow; font-size: 100px; margin-bottom: 20px;'>SOLTA A VOZ!</h1>
@@ -49,6 +51,7 @@ while True:
             display.markdown("<h1 style='text-align: center; color: #555;'>Aguardando sinal do sistema...</h1>", unsafe_allow_html=True)
             
     except Exception as e:
-        display.write(f"Erro de conexão: {e}")
+        # Em vez de travar o app, mostramos o erro discretamente e tentamos de novo no próximo ciclo
+        display.warning(f"Conexão instável, tentando reconectar...")
         
-    time.sleep(2) # Verifica o status a cada 2 segundos para não sobrecarregar
+    time.sleep(2) # Verifica o status a cada 2 segundos
