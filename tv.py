@@ -5,34 +5,30 @@ import time
 # Configuração da página para modo tela cheia
 st.set_page_config(page_title="FF KARAOKE - TV", layout="wide")
 
-# Ocultar elementos padrão do Streamlit para modo TV
+# Ocultar elementos padrão do Streamlit
 st.markdown("""<style>#MainMenu {visibility: hidden;} footer {visibility: hidden;}</style>""", unsafe_allow_html=True)
 
-# A forma correta de capturar parâmetros no Streamlit atual
+# Captura o slug via URL: ?prestador=...
 params = st.query_params
-# Usar .get() é seguro; se não existir, retorna None
 slug = params.get("prestador")
 
-# Verificação de segurança: se não houver slug, não tenta conectar ao Firebase
+# Verificação de segurança
 if not slug:
     st.markdown("<h1 style='text-align: center; color: red;'>ERRO: URL da TV inválida.</h1>", unsafe_allow_html=True)
     st.write("Certifique-se de que o link contém: `?prestador=seu-slug-aqui`")
     st.stop()
 
-# URL base do Firebase
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 
-# Área de exibição dinâmica
 display = st.empty()
 
-# Loop de monitoramento da TV
 while True:
     try:
         response = requests.get(URL_STATUS, timeout=5)
         if response.status_code == 200:
             status = response.json()
             
-            # Verifica se status é um dicionário e se contém a ação
+            # Verifica se existe um status ativo
             if isinstance(status, dict) and status.get("acao") == "contagem":
                 display.markdown(f"""
                     <div style='text-align: center; border: 10px solid #FFD700; padding: 60px; background-color: #111; border-radius: 20px;'>
@@ -41,6 +37,11 @@ while True:
                         <h3 style='color: #00FF00; font-size: 60px;'>🎵 {status.get('musica', '').upper()}</h3>
                     </div>
                 """, unsafe_allow_html=True)
+                
+                # Aguarda 10 segundos para que a mensagem seja lida e depois limpa o sinal
+                time.sleep(10)
+                requests.put(URL_STATUS, json={"acao": "espera"})
+                
             else:
                 display.markdown("""
                     <div style='text-align: center; margin-top: 150px;'>
@@ -51,7 +52,6 @@ while True:
             display.markdown("<h1 style='text-align: center; color: #555;'>Aguardando sinal do sistema...</h1>", unsafe_allow_html=True)
             
     except Exception as e:
-        # Em vez de travar o app, mostramos o erro discretamente e tentamos de novo no próximo ciclo
         display.warning(f"Conexão instável, tentando reconectar...")
         
-    time.sleep(2) # Verifica o status a cada 2 segundos
+    time.sleep(2)
