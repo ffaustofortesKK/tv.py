@@ -1,14 +1,15 @@
 import streamlit as st
 import requests
 import time
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="FF KARAOKE - TV", layout="wide")
 
+# CSS para esconder elementos do Streamlit
 st.markdown("""<style>
     #MainMenu {visibility: hidden; display: none;} 
     footer {visibility: hidden; display: none;}
     .video-container { text-align: center; margin-top: 50px; }
-    video { width: 80%; border: 10px solid #FFD700; border-radius: 20px; background: black; }
 </style>""", unsafe_allow_html=True)
 
 params = st.query_params
@@ -30,22 +31,27 @@ while True:
             if isinstance(status, dict) and status.get("acao") == "contagem":
                 video_url = status.get('url_video', '')
                 
-                # ADICIONEI: key={video_url} no markdown. 
-                # Isso força o Streamlit a redesenhar o componente se o vídeo mudar.
-                display.markdown(f"""
-                    <div class='video-container' key="{video_url}">
-                        <h1 style='color: yellow;'>SOLTA A VOZ: {status.get('cantor', '').upper()}</h1>
-                        <video id="v1" width="800" autoplay muted playsinline controls>
+                # Usamos st.components.v1.html para melhor controlo sobre o player
+                components.html(f"""
+                    <div style='text-align: center;'>
+                        <h1 style='color: yellow; font-family: sans-serif;'>SOLTA A VOZ: {status.get('cantor', '').upper()}</h1>
+                        <video id="v1" width="800" autoplay playsinline controls style="border: 10px solid #FFD700; border-radius: 20px; background: black;">
                             <source src="{video_url}" type="video/mp4">
-                            Seu navegador não suporta vídeos.
                         </video>
-                        <script>
-                            var vid = document.getElementById('v1');
-                            vid.load(); 
-                            vid.play();
-                        </script>
                     </div>
-                """, unsafe_allow_html=True)
+                    <script>
+                        var vid = document.getElementById('v1');
+                        // Tenta dar autoplay
+                        vid.muted = true; // Inicia mudo para garantir que o autoplay funcione
+                        vid.play().then(() => {{
+                            // Após iniciar, tira o mute após 1 segundo
+                            setTimeout(() => {{ vid.muted = false; }}, 1000);
+                        }}).catch(e => console.log("Autoplay bloqueado"));
+                        
+                        // Garante que o vídeo não para
+                        vid.addEventListener('ended', () => {{ vid.play(); }});
+                    </script>
+                """, height=700)
                 
                 time.sleep(30) 
                 requests.put(URL_STATUS, json={"acao": "espera"})
