@@ -23,16 +23,17 @@ if not slug: st.error("URL Inválida"); st.stop()
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
 
+# Busca de dados com tratamento de erro
 try:
-    res_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
-    res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=5).json() or {}
+    res_status = requests.get(f"{URL_STATUS}?t={time.time()}", timeout=5).json() or {}
+    res_pedidos = requests.get(f"{URL_PEDIDOS}?t={time.time()}", timeout=5).json() or {}
 except:
     res_status = {}; res_pedidos = {}
 
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
 
-# 1. EXIBIÇÃO DO VÍDEO COM CONTROLES
+# 1. EXIBIÇÃO DO VÍDEO
 if comando == "play" and url_video:
     components.html(f"""
         <div class="video-container">
@@ -55,21 +56,30 @@ elif comando == "aguardando_play":
         </div>
     """, unsafe_allow_html=True)
 
-# 3. CABEÇALHO PADRÃO
+# 3. CABEÇALHO
 else:
     st.markdown("<h1 style='text-align:center; color:white; margin-top: 20px;'>FF KARAOKE</h1>", unsafe_allow_html=True)
 
-# 4. LISTA DE PEDIDOS (Sempre visível abaixo)
+# 4. LISTA DE PEDIDOS
 if res_pedidos:
     st.markdown("<div class='fila-container'>", unsafe_allow_html=True)
     st.subheader("🎤 Fila de Espera:")
+    # Converte dicionário em lista para exibição ordenada
     pedidos_lista = list(res_pedidos.items())
     for i, (p_id, p) in enumerate(pedidos_lista, 1):
         st.markdown(f"### {i}. <span class='cantor-style'>{p.get('cantor')}</span> - <span class='musica-style'>{p.get('musica')}</span>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
+# LÓGICA DE LIMPEZA APÓS MÚSICA TERMINAR
 if comando == "finalizado":
-    requests.patch(URL_STATUS, json={"comando": "aguardando"})
+    # 1. Remove o pedido da fila (o primeiro da lista)
+    if res_pedidos:
+        primeiro_id = list(res_pedidos.keys())[0]
+        requests.delete(f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}/{primeiro_id}.json")
+    
+    # 2. Reseta o status para "aguardando"
+    requests.patch(URL_STATUS, json={"comando": "aguardando", "cantor": "", "musica": ""})
+    st.rerun()
 
 time.sleep(2)
 st.rerun()
