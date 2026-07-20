@@ -17,30 +17,26 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 params = st.query_params
-slug = params.get("prestador")
-if not slug: st.error("URL Inválida"); st.stop()
+slug = params.get("prestador", "geral")
 
+# URLs unificadas em sintonia com o painel de controlo desktop e cliente
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
-URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
+URL_PEDIDOS = "https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos.json"
 
 # Buscar dados
 try:
     res_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
     res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=5).json() or {}
 except:
-    res_status = {}; res_pedidos = {}
+    res_status = {}
+    res_pedidos = {}
 
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
 
 # 1. EXIBIÇÃO DO VÍDEO
 if comando == "play" and url_video:
-    # Usamos o componente padrão de vídeo do Streamlit que é mais estável para autoplay
     st.markdown(f'<div class="video-container"><video width="80%" autoplay playsinline src="{url_video}" style="border:10px solid gold; border-radius:20px;"></video></div>', unsafe_allow_html=True)
-    
-    # Lógica de finalização controlada pelo servidor (não pelo JS)
-    # Como o Streamlit recarrega a cada 2 segundos, verificamos se o tempo passou
-    # OU, se preferir, pode-se deixar apenas o vídeo rodando e o DJ avança manualmente
     st.info("🎤 A música está a tocar...")
 
 # 2. VEZ DO CANTOR
@@ -65,6 +61,6 @@ if res_pedidos:
         st.markdown(f"### {i}. <span class='cantor-style'>{p.get('cantor')}</span> - <span class='musica-style'>{p.get('musica')}</span>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Delay para atualizar a tela
+# Delay para atualizar a tela automaticamente
 time.sleep(2)
 st.rerun()
