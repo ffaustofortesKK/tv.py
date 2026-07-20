@@ -116,23 +116,24 @@ if comando == "play":
                     vid.play();
                 }});
 
-                // Assim que o karaoke termina, fecha o vídeo, limpa o status e recarrega para voltar à fila
+                // Assim que o karaoke termina, limpa o status no Firebase para 'fim' e recarrega a página de imediato
                 vid.onended = function() {{
                     fetch('{URL_STATUS}', {{
                         method: 'PATCH',
                         headers: {{ 'Content-Type': 'application/json' }},
                         body: JSON.stringify({{ comando: 'fim', url_video: '', musica: '', cantor: '' }})
                     }}).then(() => {{
-                        window.location.reload();
+                        window.location.href = window.location.href;
                     }});
                 }};
             </script>
         """, unsafe_allow_html=True)
 
         while True:
-            time.sleep(3)
+            time.sleep(2)
             try:
                 check_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
+                # Se o comando deixou de ser 'play' (ex: foi resetado para 'fim' ou vazio), sai do loop e atualiza a página
                 if check_status.get("comando") != "play":
                     st.rerun()
             except:
@@ -263,7 +264,7 @@ else:
                                     window.location.reload();
                                 }}
                             }}).catch(err => {{}});
-                    }}, 3000);
+                    }}, 2500);
                 </script>
             """, unsafe_allow_html=True)
         else:
