@@ -4,7 +4,7 @@ import time
 import cloudinary
 import cloudinary.api
 
-# Configuração Cloudinary para buscar os videoclipes de fundo
+# Configuração Cloudinary para ir buscar os clipes da nova pasta
 cloudinary.config(cloud_name="yhwgjh7g", api_key="347924379441394", api_secret="_gzZOnOmzIk6dlmferYm6ck8S08")
 
 st.set_page_config(page_title="FF KARAOKE - TV", layout="wide")
@@ -15,26 +15,15 @@ st.markdown("""
         #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
         .cantor-style { color: white; font-weight: bold; text-shadow: 2px 2px 4px #000; }
         .musica-style { color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
-        
         .video-container { 
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
             background: black; display: flex; justify-content: center; align-items: center; z-index: 9999; 
         }
         video { width: 100vw; height: 100vh; object-fit: contain; background: black; }
-        
-        /* Layout dividido da Tela de Espera */
-        .main-layout { display: flex; width: 100vw; height: 100vh; padding: 30px; box-sizing: border-box; gap: 30px; }
-        .escola-fila { flex: 1; background: rgba(20,20,20,0.85); padding: 30px; border-radius: 20px; border: 2px solid #333; overflow-y: auto; }
-        .lado-clips { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(10,10,10,0.9); border-radius: 20px; border: 2px solid #333; padding: 20px; }
-        
-        /* Contagem Decrescente */
-        .countdown-container {
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0, 0, 0, 0.95); display: flex; flex-direction: column;
-            justify-content: center; align-items: center; z-index: 9998; color: white;
-        }
-        .countdown-number { font-size: 12rem; color: yellow; font-weight: bold; animation: pulse 1s infinite; text-shadow: 0 0 30px rgba(255,255,0,0.7); }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+        .layout-principal { display: flex; width: 100vw; height: 100vh; padding: 20px; box-sizing: border-box; gap: 20px; }
+        .coluna-esquerda { flex: 1; background: rgba(0,0,0,0.85); padding: 30px; border-radius: 15px; border: 2px solid #333; overflow-y: auto; }
+        .coluna-direita { width: 450px; background: rgba(0,0,0,0.85); padding: 20px; border-radius: 15px; border: 2px solid #333; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        .contador-box { font-size: 8rem; color: yellow; font-weight: bold; text-shadow: 0 0 20px red; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -43,22 +32,6 @@ slug = params.get("prestador", "geral")
 
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
-
-# Função para buscar um videoclip aleatório da pasta "Video_Clipes" no Cloudinary
-@st.cache_data(ttl=60)
-def obter_videoclip_aleatorio():
-    try:
-        # Tenta buscar recursos na pasta Video_Clipes ou com prefixo geral
-        resources = cloudinary.api.resources(type="upload", resource_type="video", max_results=50)
-        clips = [r['secure_url'] for r in resources.get('resources', []) if 'video' in r.get('public_id', '').lower() or 'clipe' in r.get('public_id', '').lower() or 'clip' in r.get('public_id', '').lower()]
-        if not clips and resources.get('resources'):
-            clips = [r['secure_url'] for r in resources.get('resources', [])]
-        if clips:
-            import random
-            return random.choice(clips)
-    except:
-        pass
-    return None
 
 # Buscar dados do Firebase
 try:
@@ -70,6 +43,19 @@ except:
 
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
+
+# Função auxiliar para recolher aleatoriamente um vídeo clipe da pasta criada no Cloudinary
+def obter_video_clipe_aleatorio():
+    try:
+        # Altere "Video_Clipes" para o nome exato da pasta que criou no Cloudinary se necessário
+        resources = cloudinary.api.resources(type="upload", resource_type="video", prefix="Video_Clipes", max_results=50)
+        lista = resources.get('resources', [])
+        if lista:
+            import random
+            return random.choice(lista)['secure_url']
+    except:
+        pass
+    return None
 
 # 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA CHEIA
 if comando == "play":
@@ -114,89 +100,67 @@ if comando == "play":
         requests.patch(URL_STATUS, json={"comando": "fim"})
         st.rerun()
 
-# 2. CONTAGEM DECRESCENTE (3, 2, 1) ANTES DE ABRIR O KARAOKE
+# 2. CONTAGEM DECRESCENTE (3, 2, 1, 0) ANTES DE ABRIR O KARAOKE
 elif comando == "aguardando_play":
-    cantor_atual = str(res_status.get('cantor', '')).upper()
-    musica_atual = str(res_status.get('musica', '')).upper()
-    
     st.markdown(f"""
-        <div class="countdown-container">
-            <h1 style="font-size: 2.5rem; color: #00ff00; margin-bottom: 10px;">PRÓXIMO CANTOR: {cantor_atual}</h1>
-            <h2 style="font-size: 1.8rem; color: yellow; margin-bottom: 40px;">{musica_atual}</h2>
-            <p style="font-size: 1.2rem; letter-spacing: 2px; color: #aaa; text-transform: uppercase;">O palco é seu em:</p>
-            <div class="countdown-number" id="relogio">3</div>
+        <div style='text-align:center; padding:80px; color:white;'>
+            <h1 style='font-size: 2.5rem; color: #00ff00;'>A CHAMAR AO PALCO:</h1>
+            <h2 style='font-size: 3.5rem;' class="cantor-style">{str(res_status.get('cantor', '')).upper()}</h2>
+            <h3 style='font-size: 2rem; color: yellow;'>{str(res_status.get('musica', '')).upper()}</h3>
+            <hr style='width: 50%; margin: 20px auto; border-color: #444;'>
+            <p style='font-size: 1.5rem; color: #ccc;'>O palco vai abrir em:</p>
         </div>
-        <script>
-            let segundos = 3;
-            const elem = document.getElementById('relogio');
-            const timer = setInterval(() => {{
-                segundos--;
-                if (segundos > 0) {{
-                    elem.innerHTML = segundos;
-                }} else if (segundos === 0) {{
-                    elem.innerHTML = "JÁ!";
-                }} else {{
-                    clearInterval(timer);
-                    // Dispara automaticamente o comando play no firebase via JS quando o timer acaba
-                    fetch('{URL_STATUS}', {{
-                        method: 'PATCH',
-                        headers: {{ 'Content-Type': 'application/json' }},
-                        body: JSON.stringify({{ comando: 'play' }})
-                    }}).then(() => {{
-                        window.location.reload();
-                    }});
-                }}
-            }}, 1000);
-        </script>
     """, unsafe_allow_html=True)
-    time.sleep(4.5)
+    
+    # Executa a contagem visual de 3 até 0
+    placeholder_contagem = st.empty()
+    for i in [3, 2, 1, 0]:
+        placeholder_contagem.markdown(f'<div class="contador-box">{i}</div>', unsafe_allow_html=True)
+        time.sleep(1)
+    
+    # Assim que chega a 0, muda automaticamente o comando para "play" para arrancar o vídeo
+    requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 3. TELA PRINCIPAL DIVIDIDA: FILA DE ESPERA (ESQUERDA) + VIDEOCLIPE (DIREITA)
+# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE EM MINIATURA À DIREITA
 else:
-    clipe_url = obter_videoclip_aleatorio()
-    
-    # Monta a estrutura em duas colunas visuais via HTML/CSS e Streamlit
-    col_esq, col_dir = st.columns([1.1, 0.9])
-    
-    with col_esq:
-        st.markdown("<h1 style='color: gold; font-size: 2.2rem; margin-bottom: 20px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
-        st.markdown("<div class='escola-fila'>", unsafe_allow_html=True)
+    cl1, cl2 = st.columns([1.3, 1])
+
+    with cl1:
+        st.markdown("<h1 style='color:gold; font-size: 2.5rem; margin-bottom: 20px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
+        st.markdown("<div class='coluna-esquerda'>", unsafe_allow_html=True)
         
         if res_pedidos:
             pedidos_lista = list(res_pedidos.items())
             contador_exibicao = 1
             for p_id, p in pedidos_lista:
                 if not str(p.get('musica', '')).startswith("PEDIDO:"):
-                    st.markdown(f"""
-                        <div style='margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px;'>
-                            <h3 style='margin:0; font-size: 1.3rem; color: #00ff00;'>{contador_exibicao}. {str(p.get('cantor')).upper()}</h3>
-                            <p style='margin:5px 0 0 0; font-size: 1.1rem;'><span class='musica-style'>🎵 {str(p.get('musica')).upper()}</span></p>
-                        </div>
-                    """, unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='margin: 15px 0;'>{contador_exibicao}. <span class='cantor-style'>{str(p.get('cantor')).upper()}</span> ➔ <span class='musica-style'>{str(p.get('musica')).upper()}</span></h3>", unsafe_allow_html=True)
                     contador_exibicao += 1
             if contador_exibicao == 1:
-                st.markdown("<h3 style='color: #888;'>Nenhum cantor na fila de momento.</h3>", unsafe_allow_html=True)
+                st.info("Ainda sem cantores na fila.")
         else:
-            st.markdown("<h3 style='color: #888;'>A fila está vazia. Faça o seu pedido pelo telemóvel! 📱</h3>", unsafe_allow_html=True)
+            st.info("A fila está vazia. Envie músicas pelo telemóvel!")
             
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with col_dir:
-        st.markdown("<h2 style='color: #00ffff; font-size: 1.8rem; text-align: center; margin-bottom: 15px;'>🎬 VIDEOCLIPES</h2>", unsafe_allow_html=True)
-        st.markdown("<div class='lado-clips'>", unsafe_allow_html=True)
+    with cl2:
+        st.markdown("<h3 style='color:white; text-align:center; margin-bottom: 10px;'>📺 VÍDEO CLIPE EM DESTAQUE</h3>", unsafe_allow_html=True)
+        st.markdown("<div class='coluna-direita'>", unsafe_allow_html=True)
         
-        if clipe_url:
+        # Puxa um vídeo clipe da pasta do Cloudinary para passar em miniatura
+        url_clipe = obter_video_clipe_aleatorio()
+        if url_clipe:
             st.markdown(f"""
-                <video width="100%" autoplay loop muted playsinline style="border-radius: 15px; border: 2px solid #444; max-height: 60vh; object-fit: cover;">
-                    <source src="{clipe_url}" type="video/mp4">
-                    Seu navegador não suporta vídeos.
+                <video width="100%" height="320px" autoplay muted loop playsinline style="border-radius: 10px; border: 2px solid gold; object-fit: cover;">
+                    <source src="{url_clipe}" type="video/mp4">
+                    Seu navegador não suporta vídeo.
                 </video>
             """, unsafe_allow_html=True)
         else:
-            st.markdown("<p style='color: #aaa; text-align: center;'>Adicione vídeos à pasta do Cloudinary para exibir aqui.</p>", unsafe_allow_html=True)
+            st.warning("Adicione vídeos na pasta 'Video_Clipes' no Cloudinary.")
             
         st.markdown("</div>", unsafe_allow_html=True)
 
-    time.sleep(4)
+    time.sleep(5)
     st.rerun()
