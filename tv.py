@@ -21,9 +21,12 @@ st.markdown("""
             background: black; display: flex; justify-content: center; align-items: center; z-index: 9999; 
         }
         video { width: 100vw; height: 100vh; object-fit: contain; background: black; }
-        .layout-principal { display: flex; width: 100vw; height: 100vh; padding: 20px; box-sizing: border-box; gap: 20px; }
+        
         .coluna-esquerda { flex: 1; background: rgba(0,0,0,0.85); padding: 30px; border-radius: 15px; border: 2px solid #333; overflow-y: auto; }
-        .coluna-direita { width: 320px; background: rgba(0,0,0,0.85); padding: 15px; border-radius: 15px; border: 2px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+        
+        /* Largura e tamanho ainda mais reduzidos para a mini tela */
+        .coluna-direita { width: 240px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 12px; border: 2px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+        
         .contador-box { font-size: 8rem; color: yellow; font-weight: bold; text-shadow: 0 0 20px red; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
@@ -32,7 +35,7 @@ params = st.query_params
 slug = params.get("prestador", "geral")
 
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
-URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.fiscalio.com/pedidos_{slug}.json" if False else f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
+URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
 
 # Buscar dados do Firebase
 try:
@@ -45,10 +48,9 @@ except:
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
 
-# Função infalível usando Cloudinary Search para encontrar os vídeos da pasta "video_clipes"
+# Função para encontrar os vídeos da pasta "video_clipes"
 def obter_video_clipe_da_pasta():
     try:
-        # Pesquisa por expressão focada na pasta video_clipes
         search_result = cloudinary.search.Search()\
             .expression('folder=video_clipes AND resource_type:video')\
             .max_results(50)\
@@ -60,7 +62,6 @@ def obter_video_clipe_da_pasta():
     except Exception as e:
         print("Erro na busca avançada Cloudinary:", e)
     
-    # Plano de segurança: se por acaso a expressão falhar, busca qualquer vídeo geral da conta
     try:
         fallback = cloudinary.api.resources(type="upload", resource_type="video", max_results=50)
         geral = fallback.get('resources', [])
@@ -136,7 +137,7 @@ elif comando == "aguardando_play":
 
 # 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE EM MINIATURA À DIREITA
 else:
-    cl1, cl2 = st.columns([1.4, 0.9])
+    cl1, cl2 = st.columns([1.6, 0.6])
 
     with cl1:
         st.markdown("<h1 style='color:gold; font-size: 2.5rem; margin-bottom: 20px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
@@ -157,20 +158,20 @@ else:
         st.markdown("</div>", unsafe_allow_html=True)
 
     with cl2:
-        st.markdown("<h4 style='color:white; text-align:center; margin-bottom: 5px; font-size: 1.1rem;'>📺 VÍDEO CLIPE</h4>", unsafe_allow_html=True)
+        st.markdown("<h4 style='color:white; text-align:center; margin-bottom: 5px; font-size: 0.95rem;'>📺 VÍDEO CLIPE</h4>", unsafe_allow_html=True)
         st.markdown("<div class='coluna-direita'>", unsafe_allow_html=True)
         
-        # Puxa o vídeo utilizando a pesquisa estruturada na pasta
         url_clipe = obter_video_clipe_da_pasta()
         if url_clipe:
+            # Altura encolhida para 130px para ficar bem pequeno estilo miniatura
             st.markdown(f"""
-                <video width="100%" height="180px" autoplay muted loop playsinline style="border-radius: 8px; border: 2px solid gold; object-fit: cover;">
+                <video width="100%" height="130px" autoplay muted loop playsinline style="border-radius: 6px; border: 2px solid gold; object-fit: cover;">
                     <source src="{url_clipe}" type="video/mp4">
                     Seu navegador não suporta vídeo.
                 </video>
             """, unsafe_allow_html=True)
         else:
-            st.warning("Nenhum vídeo encontrado na pasta 'video_clipes'.")
+            st.warning("Nenhum vídeo encontrado.")
             
         st.markdown("</div>", unsafe_allow_html=True)
 
