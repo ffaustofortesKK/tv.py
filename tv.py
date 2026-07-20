@@ -64,7 +64,7 @@ slug = params.get("prestador", "geral")
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
 
-# Buscar dados do Firebase
+# Buscar dados iniciais do Firebase
 try:
     res_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
     res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=5).json() or {}
@@ -75,7 +75,7 @@ except:
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
 
-# Função para listar todos os vídeos da pasta "video_clipes" para transição cruzada
+# Função para listar todos os vídeos da pasta "video_clipes" para transição cruzada aleatória
 def obter_todos_videos_da_pasta():
     try:
         search_result = cloudinary.search.Search()\
@@ -116,7 +116,7 @@ if comando == "play":
                     vid.play();
                 }});
 
-                // Assim que o karaoke termina, fecha o vídeo e limpa o status voltando à fila
+                // Assim que o karaoke termina, fecha o vídeo, limpa o status e recarrega para voltar à fila
                 vid.onended = function() {{
                     fetch('{URL_STATUS}', {{
                         method: 'PATCH',
@@ -163,38 +163,39 @@ elif comando == "aguardando_play":
     requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 3. TELA PRINCIPAL: FILA DE ESPERA E VÍDEOS CLIPES ALEATÓRIOS COM TRANSIÇÃO DE 5 SEGUNDOS ANTES DO FIM
+# 3. TELA PRINCIPAL: FILA DE ESPERA E VÍDEOS CLIPES ALEATÓRIOS CONTÍNUOS
 else:
     cl1, cl2 = st.columns([1.4, 1.2])
 
     with cl1:
         st.markdown("<h1 style='color:gold; font-size: 2.2rem; margin-bottom: 15px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
         
-        if res_pedidos:
-            pedidos_lista = list(res_pedidos.items())
-            contador_exibicao = 1
-            for p_id, p in pedidos_lista:
-                if not str(p.get('musica', '')).startswith("PEDIDO:"):
-                    st.markdown(f"<h3 style='margin: 10px 0; font-size: 1.3rem;'>{contador_exibicao}. <span class='cantor-style'>{str(p.get('cantor')).upper()}</span> ➔ <span class='musica-style'>{str(p.get('musica')).upper()}</span></h3>", unsafe_allow_html=True)
-                    contador_exibicao += 1
-            if contador_exibicao == 1:
-                st.info("Ainda sem cantores na fila.")
-        else:
-            st.info("A fila está vazia. Envie músicas pelo telemóvel!")
+        # Bloco atualizável dinamicamente para evitar o st.rerun constante que matava o vídeo clipe
+        container_fila = st.empty()
+        
+        with container_fila.container():
+            if res_pedidos:
+                pedidos_lista = list(res_pedidos.items())
+                contador_exibicao = 1
+                for p_id, p in pedidos_lista:
+                    if not str(p.get('musica', '')).startswith("PEDIDO:"):
+                        st.markdown(f"<h3 style='margin: 10px 0; font-size: 1.3rem;'>{contador_exibicao}. <span class='cantor-style'>{str(p.get('cantor')).upper()}</span> ➔ <span class='musica-style'>{str(p.get('musica')).upper()}</span></h3>", unsafe_allow_html=True)
+                        contador_exibicao += 1
+                if contador_exibicao == 1:
+                    st.info("Ainda sem cantores na fila.")
+            else:
+                st.info("A fila está vazia. Envie músicas pelo telemóvel!")
 
     with cl2:
         st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
         
-        # Obter lista de vídeos para aleatoriedade
         lista_videos = obter_todos_videos_da_pasta()
         if lista_videos:
-            # Embaralhar aleatoriamente para garantir a ordem randómica
             random.shuffle(lista_videos)
             videos_json = str(lista_videos).replace("'", '"')
             
             st.markdown(f"""
                 <div class="video-clipe-box" id="caixa-clipes">
-                    <!-- Dois elementos de vídeo internos para alternância cruzada sem cortes secos -->
                     <video id="vc-player-1" muted playsinline></video>
                     <video id="vc-player-2" muted playsinline></video>
                 </div>
@@ -206,12 +207,9 @@ else:
                     const v1 = document.getElementById('vc-player-1');
                     const v2 = document.getElementById('vc-player-2');
                     
-                    let ativoNoV1 = true;
-                    
                     function obterProximoUrl() {{
                         if (indiceAtual >= listaUrls.length) {{
                             indiceAtual = 0;
-                            // Re-embaralha para continuar aleatório
                             listaUrls.sort(() => Math.random() - 0.5);
                         }}
                         return listaUrls[indiceAtual++];
@@ -226,24 +224,21 @@ else:
                         
                         v2.src = obterProximoUrl();
                         
-                        // Configurar o loop de transição cruzada 5 segundos antes do fim
                         function configurarMonitor(videoAtivo, videoInativo) {{
                             videoAtivo.ontimeupdate = function() {{
                                 if (videoAtivo.duration && !isNaN(videoAtivo.duration)) {{
-                                    // Faltam 5 segundos para acabar
+                                    // Faltam 5 segundos para acabar o vídeo clipe atual
                                     if ((videoAtivo.duration - videoAtivo.currentTime) <= 5 && !videoInativo.dataset.carregado) {{
                                         videoInativo.dataset.carregado = "true";
                                         videoInativo.src = obterProximoUrl();
                                         videoInativo.load();
                                         videoInativo.play().catch(e => {{}});
                                         
-                                        // Executa a transição visual cruzada
                                         setTimeout(() => {{
                                             videoInativo.classList.add('ativo');
                                             videoAtivo.classList.remove('ativo');
-                                        }}, 500); // transição suave
+                                        }}, 500);
                                         
-                                        // Prepara para o próximo ciclo trocando os papéis
                                         setTimeout(() => {{
                                             videoAtivo.pause();
                                             videoAtivo.currentTime = 0;
@@ -258,12 +253,23 @@ else:
                         configurarMonitor(v1, v2);
                     }}
                     
-                    iniciarPlayerClipe();
+                    // Inicia o leitor de clipes apenas uma vez para não interromper a reprodução
+                    if (!window.__clipeIniciado) {{
+                        window.__clipeIniciado = true;
+                        iniciarPlayerClipe();
+                    }}
+                    
+                    // Polling em background para verificar se o comando mudou para 'aguardando_play' ou 'play' sem dar reload na página inteira
+                    setInterval(() => {{
+                        fetch('{URL_STATUS}?nocache=' + Date.now())
+                            .then(res => res.json())
+                            .then(data => {{
+                                if (data && data.comando && data.comando !== "fim" && data.comando !== "") {{
+                                    window.location.reload();
+                                }}
+                            }}).catch(err => {{}});
+                    }}, 3000);
                 </script>
             """, unsafe_allow_html=True)
         else:
             st.warning("Nenhum vídeo encontrado na pasta 'video_clipes'.")
-
-    # Atualiza a página a cada 5 segundos para verificar novos pedidos na fila ou chamadas de palco
-    time.sleep(5)
-    st.rerun()
