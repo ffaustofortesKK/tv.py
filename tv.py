@@ -20,13 +20,11 @@ st.markdown("""
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
             background: black; display: flex; justify-content: center; align-items: center; z-index: 9999; 
         }
-        video { width: 100vw; height: 100vh; object-fit: contain; background: black; }
         
-        .coluna-esquerda { flex: 1; background: rgba(0,0,0,0.85); padding: 20px; border-radius: 10px; overflow-y: auto; }
-        
-        /* Caixa do vídeo clipe compacta com borda amarela exata à imagem */
+        /* Caixa exata com 430x306px e borda amarela */
         .video-clipe-box { 
-            width: 380px; 
+            width: 430px; 
+            height: 306px;
             background: black; 
             padding: 0px; 
             border-radius: 4px; 
@@ -35,6 +33,12 @@ st.markdown("""
             display: flex;
             justify-content: center;
             align-items: center;
+        }
+
+        .video-clipe-box video {
+            width: 100%;
+            height: 100%;
+            object-fit: fill; /* Garante que estica para preencher os 430x306px inteiros sem cortar metades */
         }
         
         .contador-box { font-size: 8rem; color: yellow; font-weight: bold; text-shadow: 0 0 20px red; text-align: center; }
@@ -147,7 +151,7 @@ elif comando == "aguardando_play":
 
 # 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE EM MINIATURA À DIREITA
 else:
-    cl1, cl2 = st.columns([1.5, 1.1])
+    cl1, cl2 = st.columns([1.4, 1.2])
 
     with cl1:
         st.markdown("<h1 style='color:gold; font-size: 2.2rem; margin-bottom: 15px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
@@ -165,18 +169,27 @@ else:
             st.info("A fila está vazia. Envie músicas pelo telemóvel!")
 
     with cl2:
-        # Espaçamento para alinhar a altura perfeitamente com o título da esquerda
         st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
         
         url_clipe = obter_video_clipe_da_pasta()
         if url_clipe:
+            # ID único e chave de controle para forçar o recarregamento limpo e evitar sobreposição de vídeos duplicados
+            video_id_unico = f"vid_{abs(hash(url_clipe))}"
             st.markdown(f"""
                 <div class="video-clipe-box">
-                    <video width="100%" height="210px" autoplay muted loop playsinline style="object-fit: cover; display: block;">
+                    <video id="{video_id_unico}" autoplay muted loop playsinline>
                         <source src="{url_clipe}" type="video/mp4">
                         Seu navegador não suporta vídeo.
                     </video>
                 </div>
+                <script>
+                    // Força o reset de qualquer stream órfão para garantir que apenas um vídeo toque
+                    const vElement = document.getElementById('{video_id_unico}');
+                    if (vElement) {{
+                        vElement.currentTime = 0;
+                        vElement.play().catch(e => console.log("Autoplay bloqueado:", e));
+                    }}
+                </script>
             """, unsafe_allow_html=True)
         else:
             st.warning("Nenhum vídeo encontrado.")
