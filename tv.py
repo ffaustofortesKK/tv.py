@@ -22,10 +22,20 @@ st.markdown("""
         }
         video { width: 100vw; height: 100vh; object-fit: contain; background: black; }
         
-        .coluna-esquerda { flex: 1; background: rgba(0,0,0,0.85); padding: 30px; border-radius: 15px; border: 2px solid #333; overflow-y: auto; }
+        .coluna-esquerda { flex: 1; background: rgba(0,0,0,0.85); padding: 20px; border-radius: 10px; overflow-y: auto; }
         
-        /* Largura e tamanho ainda mais reduzidos para a mini tela */
-        .coluna-direita { width: 240px; background: rgba(0,0,0,0.85); padding: 10px; border-radius: 12px; border: 2px solid #333; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; }
+        /* Caixa do vídeo clipe compacta com borda amarela exata à imagem */
+        .video-clipe-box { 
+            width: 380px; 
+            background: black; 
+            padding: 0px; 
+            border-radius: 4px; 
+            border: 2px solid #ffd700; 
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
         
         .contador-box { font-size: 8rem; color: yellow; font-weight: bold; text-shadow: 0 0 20px red; text-align: center; }
     </style>
@@ -137,43 +147,39 @@ elif comando == "aguardando_play":
 
 # 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE EM MINIATURA À DIREITA
 else:
-    cl1, cl2 = st.columns([1.6, 0.6])
+    cl1, cl2 = st.columns([1.5, 1.1])
 
     with cl1:
-        st.markdown("<h1 style='color:gold; font-size: 2.5rem; margin-bottom: 20px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
-        st.markdown("<div class='coluna-esquerda'>", unsafe_allow_html=True)
+        st.markdown("<h1 style='color:gold; font-size: 2.2rem; margin-bottom: 15px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
         
         if res_pedidos:
             pedidos_lista = list(res_pedidos.items())
             contador_exibicao = 1
             for p_id, p in pedidos_lista:
                 if not str(p.get('musica', '')).startswith("PEDIDO:"):
-                    st.markdown(f"<h3 style='margin: 15px 0;'>{contador_exibicao}. <span class='cantor-style'>{str(p.get('cantor')).upper()}</span> ➔ <span class='musica-style'>{str(p.get('musica')).upper()}</span></h3>", unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='margin: 10px 0; font-size: 1.3rem;'>{contador_exibicao}. <span class='cantor-style'>{str(p.get('cantor')).upper()}</span> ➔ <span class='musica-style'>{str(p.get('musica')).upper()}</span></h3>", unsafe_allow_html=True)
                     contador_exibicao += 1
             if contador_exibicao == 1:
                 st.info("Ainda sem cantores na fila.")
         else:
             st.info("A fila está vazia. Envie músicas pelo telemóvel!")
-            
-        st.markdown("</div>", unsafe_allow_html=True)
 
     with cl2:
-        st.markdown("<h4 style='color:white; text-align:center; margin-bottom: 5px; font-size: 0.95rem;'>📺 VÍDEO CLIPE</h4>", unsafe_allow_html=True)
-        st.markdown("<div class='coluna-direita'>", unsafe_allow_html=True)
+        # Espaçamento para alinhar a altura perfeitamente com o título da esquerda
+        st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
         
         url_clipe = obter_video_clipe_da_pasta()
         if url_clipe:
-            # Altura encolhida para 130px para ficar bem pequeno estilo miniatura
             st.markdown(f"""
-                <video width="100%" height="130px" autoplay muted loop playsinline style="border-radius: 6px; border: 2px solid gold; object-fit: cover;">
-                    <source src="{url_clipe}" type="video/mp4">
-                    Seu navegador não suporta vídeo.
-                </video>
+                <div class="video-clipe-box">
+                    <video width="100%" height="210px" autoplay muted loop playsinline style="object-fit: cover; display: block;">
+                        <source src="{url_clipe}" type="video/mp4">
+                        Seu navegador não suporta vídeo.
+                    </video>
+                </div>
             """, unsafe_allow_html=True)
         else:
             st.warning("Nenhum vídeo encontrado.")
-            
-        st.markdown("</div>", unsafe_allow_html=True)
 
     time.sleep(5)
     st.rerun()
