@@ -89,6 +89,7 @@ slug = params.get("prestador", "geral")
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
 
+# Buscar dados do Firebase
 try:
     res_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
     res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=5).json() or {}
@@ -98,6 +99,25 @@ except:
 
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
+
+# Função para buscar todos os vídeos da pasta "clipes" para formar a Playlist
+@st.cache_data(ttl=30)
+def obter_playlist_clipes():
+    try:
+        search_result = cloudinary.search.Search()\
+            .expression('folder=clipes AND resource_type:video')\
+            .max_results(50)\
+            .execute()
+        lista = search_result.get('resources', [])
+        playlist = []
+        for item in lista:
+            public_id = item.get('public_id', 'video')
+            nome = public_id.split('/')[-1]
+            playlist.append((nome, item['secure_url']))
+        return playlist
+    except Exception as e:
+        print("Erro ao buscar playlist no Cloudinary:", e)
+        return []
 
 # 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA CHEIA COM CONTROLES COMPLETOS
 if comando == "play":
@@ -223,7 +243,7 @@ elif comando == "aguardando_play":
     requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE DE FUNDO CONTROLADO PELO PRESTADOR À DIREITA
+# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE DE FUNDO
 else:
     cl1, cl2 = st.columns([1.4, 1.2])
 
