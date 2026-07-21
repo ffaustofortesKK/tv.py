@@ -18,9 +18,55 @@ st.markdown("""
         .musica-style { color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
         .video-container { 
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-            background: black; display: flex; justify-content: center; align-items: center; z-index: 9999; 
+            background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; 
         }
         
+        /* Estilização da barra de progresso e controles na tela cheia */
+        .karaoke-controls-bar {
+            width: 80vw;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 15px;
+            background: rgba(20, 20, 20, 0.8);
+            padding: 12px 20px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            z-index: 10000;
+        }
+        .linha-tempo {
+            flex-grow: 1;
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            border-radius: 4px;
+            background: #444;
+            outline: none;
+            cursor: pointer;
+        }
+        .linha-tempo::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ffd700;
+            cursor: pointer;
+        }
+        .btn-avancar-custom {
+            background-color: #ff4b4b;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .btn-avancar-custom:hover {
+            background-color: #ff2222;
+        }
+
         /* Caixa exata com 430x306px e borda amarela */
         .video-clipe-box { 
             width: 430px; 
@@ -38,7 +84,7 @@ st.markdown("""
         .video-clipe-box video {
             width: 100%;
             height: 100%;
-            object-fit: fill; /* Garante que estica para preencher os 430x306px inteiros sem cortar metades */
+            object-fit: fill;
         }
         
         .contador-box { font-size: 8rem; color: yellow; font-weight: bold; text-shadow: 0 0 20px red; text-align: center; }
@@ -86,24 +132,70 @@ def obter_video_clipe_da_pasta():
         
     return None
 
-# 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA CHEIA
+# 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA CHEIA (COM SOM, CONTROLES, AVANÇAR E LINHA DE TEMPO)
 if comando == "play":
     if url_video:
         st.markdown(f"""
             <div class="video-container" id="container-video">
-                <video id="karaoke-video" autoplay playsinline controls>
+                <video id="karaoke-video" playsinline controls style="width: 100vw; height: 85vh; object-fit: contain; background: black;">
                     <source src="{url_video}" type="video/mp4">
                     O seu navegador não suporta reprodução de vídeo.
                 </video>
+                
+                <div class="karaoke-controls-bar">
+                    <button class="btn-avancar-custom" onclick="avancarMusica()">⏭️ Avançar / Sair</button>
+                    <span id="tempo-atual" style="color: white; font-family: monospace; font-size: 1.1rem;">00:00</span>
+                    <input type="range" id="barra-progresso" class="linha-tempo" value="0" max="100" step="0.1">
+                    <span id="tempo-total" style="color: white; font-family: monospace; font-size: 1.1rem;">00:00</span>
+                </div>
             </div>
+            
             <script>
                 const vid = document.getElementById('karaoke-video');
-                vid.play().catch(error => {{
-                    vid.muted = true;
-                    vid.play();
-                }});
+                const barra = document.getElementById('barra-progresso');
+                const tAtual = document.getElementById('tempo-atual');
+                const tTotal = document.getElementById('tempo-total');
 
-                vid.onended = function() {{
+                // Tenta reproduzir com som ativado
+                vid.muted = false;
+                vid.play().catch(error => {
+                    console.log("Autoplay com som bloqueado pelo browser, reativando com clique ou mudo temporário:", error);
+                    vid.muted = true;
+                    vid.play().then(() => {
+                        // Tenta ligar o som logo em seguida
+                        setTimeout(() => { vid.muted = false; }, 1000);
+                    });
+                });
+
+                function formatarTempo(segundos) {
+                    let m = Math.floor(segundos / 60);
+                    let s = Math.floor(segundos % 60);
+                    return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+                }
+
+                vid.onloadedmetadata = function() {{
+                    barra.max = vid.duration;
+                    tTotal.innerText = formatarTempo(vid.duration);
+                }};
+
+                vid.ontimeupdate = function() {{
+                    if (!barra.dragging) {{
+                        barra.value = vid.currentTime;
+                    }}
+                    tAtual.innerText = formatarTempo(vid.currentTime);
+                }};
+
+                barra.oninput = function() {{
+                    barra.dragging = true;
+                    vid.currentTime = barra.value;
+                }};
+
+                barra.onchange = function() {{
+                    barra.dragging = false;
+                    vid.currentTime = barra.value;
+                }};
+
+                function avancarMusica() {{
                     fetch('{URL_STATUS}', {{
                         method: 'PATCH',
                         headers: {{ 'Content-Type': 'application/json' }},
@@ -111,6 +203,10 @@ if comando == "play":
                     }}).then(() => {{
                         window.location.reload();
                     }});
+                }}
+
+                vid.onended = function() {{
+                    avancarMusica();
                 }};
             </script>
         """, unsafe_allow_html=True)
@@ -173,7 +269,6 @@ else:
         
         url_clipe = obter_video_clipe_da_pasta()
         if url_clipe:
-            # ID único e chave de controle para forçar o recarregamento limpo e evitar sobreposição de vídeos duplicados
             video_id_unico = f"vid_{abs(hash(url_clipe))}"
             st.markdown(f"""
                 <div class="video-clipe-box">
@@ -183,7 +278,6 @@ else:
                     </video>
                 </div>
                 <script>
-                    // Força o reset de qualquer stream órfão para garantir que apenas um vídeo toque
                     const vElement = document.getElementById('{video_id_unico}');
                     if (vElement) {{
                         vElement.currentTime = 0;
