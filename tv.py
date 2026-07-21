@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import time
 import cloudinary
-import cloudinary.search
+import cloudinary.api
 import random
 import json
 
@@ -79,17 +79,20 @@ url_video = res_status.get("url_video")
 def obter_todos_videos_da_pasta():
     urls = []
     try:
-        search_result = cloudinary.search.Search()\
-            .expression('folder=video_clipes AND resource_type:video')\
-            .max_results(50)\
-            .execute()
-        
-        lista = search_result.get('resources', [])
+        # Busca direta por prefixo da pasta no Cloudinary (mais fiável que o Search API)
+        resultado = cloudinary.api.resources(
+            type="upload", 
+            resource_type="video", 
+            prefix="video_clipes/", 
+            max_results=50
+        )
+        lista = resultado.get('resources', [])
         if lista:
             urls = [item['secure_url'] for item in lista]
     except Exception as e:
-        print("Erro na busca avançada Cloudinary:", e)
+        print("Erro ao buscar na pasta video_clipes:", e)
     
+    # Se não encontrar nada na pasta específica, tenta buscar sem prefixo como segurança
     if not urls:
         try:
             fallback = cloudinary.api.resources(type="upload", resource_type="video", max_results=50)
@@ -97,7 +100,7 @@ def obter_todos_videos_da_pasta():
             if geral:
                 urls = [item['secure_url'] for item in geral]
         except Exception as e:
-            print("Erro no fallback Cloudinary:", e)
+            print("Erro no fallback geral do Cloudinary:", e)
             
     return urls
 
