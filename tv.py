@@ -142,7 +142,7 @@ if comando == "play":
                     let m = Math.floor(segundos / 60);
                     let s = Math.floor(segundos % 60);
                     return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
-                }
+                }}
 
                 vid.ontimeupdate = function() {{
                     if (vid.duration) {{
