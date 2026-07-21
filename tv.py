@@ -16,103 +16,6 @@ st.markdown("""
         .stApp { background: black; margin: 0; padding: 0; overflow: hidden; }
         #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
         .cantor-style { color: white; font-weight: bold; text-shadow: 2px 2px 4px #000; }
-        .musica-style { color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
-        
-        .video-container { 
-            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-            background: black; display: flex; justify-content: center; align-items: center; z-index: 9999; 
-        }
-        .video-container video { 
-            width: 100vw; height: 100vh; object-fit: contain; background: black; 
-        }
-        
-        /* Caixa do Vídeo Clipe Principal com Controlos Modernos */
-        .video-clipe-box { 
-            width: 100%; 
-            max-width: 650px;
-            height: 380px;
-            background: black; 
-            border-radius: 8px; 
-            border: 2px solid #ffd700; 
-            overflow: hidden;
-            position: relative;
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
-        }
-
-        .video-clipe-box video {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0;
-            transition: opacity 1s ease-in-out;
-        }
-
-        .video-clipe-box video.ativo {
-            opacity: 1;
-            z-index: 2;
-        }
-
-        /* Barra de Controlos Flutuante sobre o Vídeo Clipe */
-        .video-controls-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: linear-gradient(transparent, rgba(0,0,0,0.85));
-            z-index: 10;
-            padding: 10px 15px;
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            opacity: 0.2;
-            transition: opacity 0.3s ease;
-        }
-
-        .video-clipe-box:hover .video-controls-overlay {
-            opacity: 1;
-        }
-
-        .progress-bar-container {
-            width: 100%;
-            height: 6px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 3px;
-            cursor: pointer;
-            position: relative;
-        }
-
-        .progress-bar-fill {
-            height: 100%;
-            background: #ffd700;
-            border-radius: 3px;
-            width: 0%;
-        }
-
-        .controls-buttons {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .btn-ctrl {
-            background: rgba(0, 0, 0, 0.6);
-            border: 1px solid #ffd700;
-            color: #ffd700;
-            padding: 4px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            font-weight: bold;
-        }
-
-        .btn-ctrl:hover {
-            background: #ffd700;
-            color: black;
-        }
-        
         .contador-box { font-size: 8rem; color: yellow; font-weight: bold; text-shadow: 0 0 20px red; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
@@ -149,34 +52,24 @@ def obter_todos_videos_da_pasta():
 if comando == "play":
     if url_video:
         st.markdown(f"""
-            <div class="video-container" id="container-video">
-                <video id="karaoke-video" autoplay playsinline>
+            <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; justify-content: center; align-items: center; z-index: 9999;">
+                <video id="karaoke-video" autoplay playsinline style="width: 100vw; height: 100vh; object-fit: contain; background: black;">
                     <source src="{url_video}" type="video/mp4">
-                    O seu navegador não suporta reprodução de vídeo.
                 </video>
             </div>
             <script>
                 const vid = document.getElementById('karaoke-video');
                 let fechado = false;
-                
                 function fecharKaraoke() {{
                     if (fechado) return;
                     fechado = true;
-
                     fetch('{URL_STATUS}', {{
                         method: 'PATCH',
                         headers: {{ 'Content-Type': 'application/json' }},
                         body: JSON.stringify({{ comando: '', url_video: '', musica: '', cantor: '' }})
-                    }}).finally(() => {{
-                        window.location.reload();
-                    }});
+                    }}).finally(() => {{ window.location.reload(); }});
                 }}
-
-                vid.play().catch(error => {{
-                    vid.muted = true;
-                    vid.play();
-                }});
-
+                vid.play().catch(error => {{ vid.muted = true; vid.play(); }});
                 vid.onended = function() {{ fecharKaraoke(); }};
                 vid.ontimeupdate = function() {{
                     if (vid.duration && !isNaN(vid.duration)) {{
@@ -241,7 +134,6 @@ else:
                                 container.innerHTML = "<div style='color: #aaa;'>A fila está vazia. Envie músicas pelo telemóvel!</div>";
                                 return;
                             }
-                            
                             let html = "";
                             let contador = 1;
                             for (const [p_id, p] of Object.entries(data)) {
@@ -250,7 +142,6 @@ else:
                                     contador++;
                                 }
                             }
-                            
                             if (contador === 1) {
                                 container.innerHTML = "<div style='color: #aaa;'>Ainda sem cantores na fila.</div>";
                             } else {
@@ -258,7 +149,6 @@ else:
                             }
                         }).catch(err => {});
                 }
-                
                 atualizarFilaRealTime();
                 setInterval(atualizarFilaRealTime, 1500);
             </script>
@@ -267,7 +157,6 @@ else:
     with cl2:
         st.markdown("<h2 style='color:gold; font-size: 1.5rem; margin-bottom: 10px;'>📺 VÍDEOS EM DESTAQUE</h2>", unsafe_allow_html=True)
         
-        # Lista padrão para arranque imediato caso demore a requisitar do Cloudinary
         lista_videos = obter_todos_videos_da_pasta()
         if not lista_videos:
             lista_videos = ["https://res.cloudinary.com/yhwgjh7g/video/upload/v1/video_clipes/amostra.mp4"]
@@ -275,7 +164,88 @@ else:
         random.shuffle(lista_videos)
         videos_json = json.dumps(lista_videos)
         
-        st.markdown(f"""
+        # Renderização correta com st.components.v1.html para exibir o player com controlos interativos perfeitamente
+        html_player = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ background: black; margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }}
+                .video-clipe-box {{ 
+                    width: 100%; 
+                    max-width: 650px;
+                    height: 380px;
+                    background: black; 
+                    border-radius: 8px; 
+                    border: 2px solid #ffd700; 
+                    overflow: hidden;
+                    position: relative;
+                    box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+                }}
+                .video-clipe-box video {{
+                    position: absolute;
+                    top: 0; left: 0;
+                    width: 100%; height: 100%;
+                    object-fit: cover;
+                    opacity: 0;
+                    transition: opacity 1s ease-in-out;
+                }}
+                .video-clipe-box video.ativo {{
+                    opacity: 1;
+                    z-index: 2;
+                }}
+                .video-controls-overlay {{
+                    position: absolute;
+                    bottom: 0; left: 0;
+                    width: 100%;
+                    background: linear-gradient(transparent, rgba(0,0,0,0.85));
+                    z-index: 10;
+                    padding: 10px 15px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 6px;
+                    opacity: 0.2;
+                    transition: opacity 0.3s ease;
+                }}
+                .video-clipe-box:hover .video-controls-overlay {{
+                    opacity: 1;
+                }}
+                .progress-bar-container {{
+                    width: 100%;
+                    height: 6px;
+                    background: rgba(255, 255, 255, 0.3);
+                    border-radius: 3px;
+                    cursor: pointer;
+                    position: relative;
+                }}
+                .progress-bar-fill {{
+                    height: 100%;
+                    background: #ffd700;
+                    border-radius: 3px;
+                    width: 0%;
+                }}
+                .controls-buttons {{
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                }}
+                .btn-ctrl {{
+                    background: rgba(0, 0, 0, 0.6);
+                    border: 1px solid #ffd700;
+                    color: #ffd700;
+                    padding: 4px 12px;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    font-size: 0.85rem;
+                    font-weight: bold;
+                }}
+                .btn-ctrl:hover {{
+                    background: #ffd700;
+                    color: black;
+                }}
+            </style>
+        </head>
+        <body>
             <div class="video-clipe-box" id="caixa-clipes">
                 <video id="vc-player-1" muted playsinline></video>
                 <video id="vc-player-2" muted playsinline></video>
@@ -327,7 +297,7 @@ else:
                     
                     v1.src = obterProximoUrl();
                     v1.load();
-                    v1.muted = true; // Inicia silenciado para o browser permitir autoplay imediato
+                    v1.muted = true;
                     v1.play().then(() => {{
                         v1.classList.add('ativo');
                     }}).catch(e => {{
@@ -363,7 +333,7 @@ else:
                                         videoAtivo.pause();
                                         videoAtivo.currentTime = 0;
                                         videoAtivo.dataset.carregado = "";
-                                        configurarMonitor(videoInativo, videoAtivo);
+                                        configurarMonitor(videoInativo, videoInativo === v1 ? v2 : v1);
                                     }}, 1400);
                                 }}
                             }}
@@ -373,7 +343,6 @@ else:
                     configurarMonitor(v1, v2);
                 }}
                 
-                // Botão Play / Pause
                 btnPlayPause.onclick = function() {{
                     if (ativoAtual.paused) {{
                         ativoAtual.play();
@@ -384,7 +353,6 @@ else:
                     }}
                 }};
                 
-                // Botão Som / Mute
                 btnSound.onclick = function() {{
                     if (ativoAtual.muted) {{
                         ativoAtual.muted = false;
@@ -399,7 +367,6 @@ else:
                     }}
                 }};
                 
-                // Clicar na barra de progresso para avançar/recuar
                 progressContainer.onclick = function(e) {{
                     let rect = progressContainer.getBoundingClientRect();
                     let posClick = (e.clientX - rect.left) / rect.width;
@@ -408,20 +375,21 @@ else:
                     }}
                 }};
                 
-                if (!window.__clipeIniciado) {{
-                    window.__clipeIniciado = true;
-                    setTimeout(iniciarPlayerClipe, 200);
-                }}
+                setTimeout(iniciarPlayerClipe, 200);
                 
-                // Deteta comandos do microfone do DJ em tempo real
+                // Monitoriza comandos do DJ em tempo real
                 setInterval(() => {{
                     fetch('{URL_STATUS}?nocache=' + Date.now())
                         .then(res => res.json())
                         .then(data => {{
                             if (data && data.comando && data.comando !== "") {{
-                                window.location.reload();
+                                window.parent.location.reload();
                             }}
                         }}).catch(err => {{}});
                 }}, 1000);
             </script>
-        """, unsafe_allow_html=True)
+        </body>
+        </html>
+        """
+        
+        st.components.v1.html(html_player, height=400)
