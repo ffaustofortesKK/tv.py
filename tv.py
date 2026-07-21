@@ -21,7 +21,7 @@ st.markdown("""
             background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99999; 
         }
         
-        /* Barra de controlos customizada com prioridade máxima de cliques (z-index e pointer-events) */
+        /* Custom Controls Overlay para o vídeo em tela cheia - Garante visibilidade e eventos por cima do vídeo */
         .custom-controls {
             position: absolute;
             bottom: 30px;
@@ -129,7 +129,7 @@ def obter_video_clipe_da_pasta():
         
     return None
 
-# 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA CHEIA COM CONTROLES CUSTOMIZADOS
+# 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA CHEIA COM CONTROLES CUSTOMIZADOS DE SOM, SEEKBAR E PRÓXIMA MÚSICA
 if comando == "play":
     if url_video:
         st.markdown(r"""
@@ -156,14 +156,14 @@ if comando == "play":
                 const timeDisplay = document.getElementById('current-time');
                 const btnPlayPause = document.getElementById('btn-play-pause');
 
-                // Força o som ligado e volume em 100% por padrão
+                // Força o volume máximo e som ativado por padrão
                 vid.muted = false;
                 vid.volume = 1.0;
                 
                 vid.play().catch(function(error) {
-                    console.log("Autoplay com som bloqueado pelo navegador, tentando ativação automática...", error);
+                    console.log("Autoplay com som bloqueado pelo navegador, tentando ativação forçada...", error);
                     vid.muted = true;
-                    vid.play().then(function() {
+                    vid.play().then(() => {
                         vid.muted = false;
                         volumeBar.value = 1;
                     });
