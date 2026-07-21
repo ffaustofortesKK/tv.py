@@ -18,7 +18,6 @@ st.markdown("""
         .cantor-style { color: white; font-weight: bold; text-shadow: 2px 2px 4px #000; }
         .musica-style { color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
         
-        /* VÍDEO DE KARAOKE EM TELA TOTAL (100% W / 100% H) */
         .video-container { 
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
             background: black; display: flex; justify-content: center; align-items: center; z-index: 9999; 
@@ -27,7 +26,6 @@ st.markdown("""
             width: 100vw; height: 100vh; object-fit: contain; background: black; 
         }
         
-        /* DIMENSÃO EXATA DO VÍDEO CLIPE: 430x306px (Lado Direito) */
         .video-clipe-box { 
             width: 430px; 
             height: 306px;
@@ -45,7 +43,7 @@ st.markdown("""
             left: 0;
             width: 100%;
             height: 100%;
-            object-fit: fill;
+            object-fit: cover;
             opacity: 0;
             transition: opacity 1s ease-in-out;
         }
@@ -65,31 +63,26 @@ slug = params.get("prestador", "geral")
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
 
-# Buscar dados do Firebase
 try:
-    res_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
-    res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=5).json() or {}
+    res_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=3).json() or {}
 except:
     res_status = {}
-    res_pedidos = {}
 
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
 
+@st.cache_data(ttl=120)
 def obter_todos_videos_da_pasta():
     urls = []
     try:
-        # Tenta listar recursos por recursos gerais de vídeo na conta
         fallback = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
         geral = fallback.get('resources', [])
         for item in geral:
             public_id = item.get('public_id', '')
-            # Filtra os que pertencem à pasta video_clipes ou aceita todos se falhar
             if 'video_clipes' in public_id or not urls:
                 urls.append(item['secure_url'])
     except Exception as e:
         print("Erro ao buscar vídeos no Cloudinary:", e)
-            
     return urls
 
 # 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA TOTAL
@@ -124,31 +117,26 @@ if comando == "play":
                     vid.play();
                 }});
 
-                vid.onended = function() {{
-                    fecharKaraoke();
-                }};
-
+                vid.onended = function() {{ fecharKaraoke(); }};
                 vid.ontimeupdate = function() {{
                     if (vid.duration && !isNaN(vid.duration)) {{
-                        if (vid.currentTime >= (vid.duration - 0.4)) {{
-                            fecharKaraoke();
-                        }}
+                        if (vid.currentTime >= (vid.duration - 0.4)) {{ fecharKaraoke(); }}
                     }}
                 }};
             </script>
         """, unsafe_allow_html=True)
 
         while True:
-            time.sleep(2)
+            time.sleep(1)
             try:
-                check_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
+                check_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=3).json() or {}
                 if check_status.get("comando") != "play":
                     st.rerun()
             except:
                 pass
     else:
         st.error("⚠️ Comando 'play' recebido, mas o link do vídeo está vazio.")
-        time.sleep(3)
+        time.sleep(2)
         requests.patch(URL_STATUS, json={"comando": ""})
         st.rerun()
 
@@ -172,24 +160,50 @@ elif comando == "aguardando_play":
     requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 3. TELA PRINCIPAL: FILA DE ESPERA E VÍDEOS CLIPES NA DIREITA
+# 3. TELA PRINCIPAL: FILA EM TEMPO REAL E VÍDEOS CLIPES
 else:
     cl1, cl2 = st.columns([1.4, 1.2])
 
     with cl1:
         st.markdown("<h1 style='color:gold; font-size: 2.2rem; margin-bottom: 15px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
         
-        if res_pedidos:
-            pedidos_lista = list(res_pedidos.items())
-            contador_exibicao = 1
-            for p_id, p in pedidos_lista:
-                if not str(p.get('musica', '')).startswith("PEDIDO:"):
-                    st.markdown(f"<h3 style='margin: 10px 0; font-size: 1.3rem;'>{contador_exibicao}. <span class='cantor-style'>{str(p.get('cantor')).upper()}</span> ➔ <span class='musica-style'>{str(p.get('musica')).upper()}</span></h3>", unsafe_allow_html=True)
-                    contador_exibicao += 1
-            if contador_exibicao == 1:
-                st.info("Ainda sem cantores na fila.")
-        else:
-            st.info("A fila está vazia. Envie músicas pelo telemóvel!")
+        # Div onde a fila será atualizada dinamicamente via JS sem atrasos de recarregamento do Streamlit
+        st.markdown("""
+            <div id="lista-fila-container" style="color: white; font-size: 1.3rem;">
+                A carregar fila...
+            </div>
+            <script>
+                function atualizarFilaRealTime() {
+                    fetch('""" + URL_PEDIDOS + """?nocache=' + Date.now())
+                        .then(res => res.json())
+                        .then(data => {
+                            const container = document.getElementById('lista-fila-container');
+                            if (!data) {
+                                container.innerHTML = "<div style='color: #aaa;'>A fila está vazia. Envie músicas pelo telemóvel!</div>";
+                                return;
+                            }
+                            
+                            let html = "";
+                            let contador = 1;
+                            for (const [p_id, p] of Object.entries(data)) {
+                                if (p.musica && !p.musica.startsWith("PEDIDO:")) {
+                                    html += `<div style="margin: 10px 0;"><b>${contador}.</b> <span style="color:white; font-weight:bold;">${p.cantor.toUpperCase()}</span> ➔ <span style="color:yellow; font-weight:bold;">${p.musica.toUpperCase()}</span></div>`;
+                                    contador++;
+                                }
+                            }
+                            
+                            if (contador === 1) {
+                                container.innerHTML = "<div style='color: #aaa;'>Ainda sem cantores na fila.</div>";
+                            } else {
+                                container.innerHTML = html;
+                            }
+                        }).catch(err => {});
+                }
+                
+                atualizarFilaRealTime();
+                setInterval(atualizarFilaRealTime, 1500);
+            </script>
+        """, unsafe_allow_html=True)
 
     with cl2:
         st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
@@ -278,7 +292,7 @@ else:
                                     window.location.reload();
                                 }}
                             }}).catch(err => {{}});
-                    }}, 1500);
+                    }}, 1000);
                 </script>
             """, unsafe_allow_html=True)
         else:
