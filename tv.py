@@ -76,7 +76,6 @@ except:
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
 
-# Função robusta para listar todos os vídeos da pasta "video_clipes"
 def obter_todos_videos_da_pasta():
     urls = []
     try:
@@ -144,7 +143,7 @@ if comando == "play":
                             fecharKaraoke();
                         }}
                     }}
-                }}
+                }};
             </script>
         """, unsafe_allow_html=True)
 
@@ -162,7 +161,7 @@ if comando == "play":
         requests.patch(URL_STATUS, json={"comando": ""})
         st.rerun()
 
-# 2. CONTAGEM DECRESCENTE (3, 2, 1, 0)
+# 2. CONTAGEM DECRESCENTE (3, 2, 1, 0) - Acionada pelo microfone do prestador
 elif comando == "aguardando_play":
     st.markdown(f"""
         <div style='text-align:center; padding:80px; color:white;'>
@@ -272,6 +271,7 @@ else:
                         iniciarPlayerClipe();
                     }}
                     
+                    // Deteta imediatamente qualquer clique no botão do microfone (comando aguardando_play ou play) para atualizar a TV e fechar o clipe
                     setInterval(() => {{
                         fetch('{URL_STATUS}?nocache=' + Date.now())
                             .then(res => res.json())
@@ -280,7 +280,7 @@ else:
                                     window.location.reload();
                                 }}
                             }}).catch(err => {{}});
-                    }}, 2500);
+                    }}, 1500);
                 </script>
             """, unsafe_allow_html=True)
         else:
