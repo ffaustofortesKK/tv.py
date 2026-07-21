@@ -79,33 +79,16 @@ url_video = res_status.get("url_video")
 def obter_todos_videos_da_pasta():
     urls = []
     try:
-        # Tenta listar os recursos especificando o prefixo da pasta video_clipes
-        resultado_pasta = cloudinary.api.resources(
-            type="upload", 
-            resource_type="video", 
-            prefix="video_clipes/", 
-            max_results=100
-        )
-        lista = resultado_pasta.get('resources', [])
-        if lista:
-            urls = [item['secure_url'] for item in lista]
+        # Tenta listar recursos por recursos gerais de vídeo na conta
+        fallback = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
+        geral = fallback.get('resources', [])
+        for item in geral:
+            public_id = item.get('public_id', '')
+            # Filtra os que pertencem à pasta video_clipes ou aceita todos se falhar
+            if 'video_clipes' in public_id or not urls:
+                urls.append(item['secure_url'])
     except Exception as e:
-        print("Erro ao buscar por prefixo video_clipes/:", e)
-    
-    # Se por algum motivo o prefixo direto não retornar, faz o rastreio geral e filtra os que contêm a pasta ou traz todos
-    if not urls:
-        try:
-            fallback = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
-            geral = fallback.get('resources', [])
-            for item in geral:
-                public_id = item.get('public_id', '')
-                if 'video_clipes' in public_id:
-                    urls.append(item['secure_url'])
-            # Se mesmo filtrando não encontrar nada, pega todos os vídeos disponíveis na conta para evitar tela preta
-            if not urls and geral:
-                urls = [item['secure_url'] for item in geral]
-        except Exception as e:
-            print("Erro no fallback de vídeos:", e)
+        print("Erro ao buscar vídeos no Cloudinary:", e)
             
     return urls
 
@@ -169,7 +152,7 @@ if comando == "play":
         requests.patch(URL_STATUS, json={"comando": ""})
         st.rerun()
 
-# 2. CONTAGEM DECRESCENTE (3, 2, 1, 0) - Acionada pelo microfone do prestador
+# 2. CONTAGEM DECRESCENTE (3, 2, 1, 0)
 elif comando == "aguardando_play":
     st.markdown(f"""
         <div style='text-align:center; padding:80px; color:white;'>
@@ -241,15 +224,22 @@ else:
                         if (!listaUrls || listaUrls.length === 0) return;
                         
                         v1.src = obterProximoUrl();
-                        v1.play().catch(e => console.log("Autoplay bloqueado:", e));
-                        v1.classList.add('ativo');
+                        v1.load();
+                        v1.play().then(() => {{
+                            v1.classList.add('ativo');
+                        }}).catch(e => {{
+                            v1.muted = true;
+                            v1.play();
+                            v1.classList.add('ativo');
+                        }});
                         
                         v2.src = obterProximoUrl();
+                        v2.load();
                         
                         function configurarMonitor(videoAtivo, videoInativo) {{
                             videoAtivo.ontimeupdate = function() {{
                                 if (videoAtivo.duration && !isNaN(videoAtivo.duration)) {{
-                                    if ((videoAtivo.duration - videoAtivo.currentTime) <= 5 && !videoInativo.dataset.carregado) {{
+                                    if ((videoAtivo.duration - videoAtivo.currentTime) <= 4 && !videoInativo.dataset.carregado) {{
                                         videoInativo.dataset.carregado = "true";
                                         videoInativo.src = obterProximoUrl();
                                         videoInativo.load();
@@ -258,14 +248,14 @@ else:
                                         setTimeout(() => {{
                                             videoInativo.classList.add('ativo');
                                             videoAtivo.classList.remove('ativo');
-                                        }}, 500);
+                                        }}, 600);
                                         
                                         setTimeout(() => {{
                                             videoAtivo.pause();
                                             videoAtivo.currentTime = 0;
                                             videoAtivo.dataset.carregado = "";
                                             configurarMonitor(videoInativo, videoAtivo);
-                                        }}, 1200);
+                                        }}, 1400);
                                     }}
                                 }}
                             }};
@@ -276,7 +266,7 @@ else:
                     
                     if (!window.__clipeIniciado) {{
                         window.__clipeIniciado = true;
-                        iniciarPlayerClipe();
+                        setTimeout(iniciarPlayerClipe, 500);
                     }}
                     
                     // Deteta imediatamente qualquer comando do microfone para abrir o palco de karaoke
@@ -293,6 +283,3 @@ else:
             """, unsafe_allow_html=True)
         else:
             st.warning("A carregar vídeos do Cloudinary ou pasta vazia...")
-
-    time.sleep(5)
-    st.rerun()
