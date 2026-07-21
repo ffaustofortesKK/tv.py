@@ -38,15 +38,41 @@ url_video = res_status.get("url_video")
 def obter_todos_videos_da_pasta():
     urls = []
     try:
-        # Busca específica dentro da pasta/prefixo video_clipes no Cloudinary
-        result = cloudinary.api.resources(type="upload", resource_type="video", prefix="video_clipes/", max_results=100)
-        geral = result.get('resources', [])
-        for item in geral:
-            secure_url = item.get('secure_url')
-            if secure_url:
-                urls.append(secure_url)
+        # Busca paginada ou ampla para capturar todos os ficheiros da pasta "video_clipes" no Cloudinary
+        next_cursor = None
+        while True:
+            params_query = {"type": "upload", "resource_type": "video", "max_results": 500}
+            if next_cursor:
+                params_query["next_cursor"] = next_cursor
+            
+            result = cloudinary.api.resources(**params_query)
+            geral = result.get('resources', [])
+            
+            for item in geral:
+                public_id = item.get('public_id', '')
+                secure_url = item.get('secure_url', '')
+                # Filtra estritamente por ficheiros que estão dentro da pasta video_clipes
+                if ('video_clipes/' in public_id or public_id.startswith('video_clipes')) and secure_url:
+                    urls.append(secure_url)
+            
+            next_cursor = result.get('next_cursor')
+            if not next_cursor:
+                break
     except Exception as e:
         print("Erro ao buscar vídeos no Cloudinary:", e)
+        
+    # Fallback caso a busca direta com barra venha vazia por variação de nomenclatura na API
+    if not urls:
+        try:
+            fallback = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
+            for item in fallback.get('resources', []):
+                public_id = item.get('public_id', '')
+                secure_url = item.get('secure_url', '')
+                if 'video_clipes' in public_id and secure_url:
+                    urls.append(secure_url)
+        except Exception as e2:
+            print("Erro no fallback do Cloudinary:", e2)
+            
     return urls
 
 # 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA TOTAL
