@@ -54,7 +54,7 @@ except:
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
 
-# 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA CHEIA COM CONTROLES COMPLETOS
+# 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA CHEIA QUANDO ESTÁ EM MODO PLAY REAL
 if comando == "play":
     if url_video:
         player_html = f"""
@@ -67,7 +67,7 @@ if comando == "play":
                 }}
                 .video-container {{ 
                     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-                    background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; 
+                    background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99999; 
                 }}
                 video {{
                     width: 100%; height: 100%; object-fit: contain;
@@ -85,6 +85,7 @@ if comando == "play":
                     gap: 15px;
                     box-shadow: 0 4px 20px rgba(0,0,0,0.9);
                     box-sizing: border-box;
+                    z-index: 2147483647;
                 }}
                 .custom-controls button {{
                     background: #ffd700;
@@ -236,7 +237,7 @@ elif comando == "aguardando_play":
     requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE DE FUNDO
+# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE DE FUNDO NO CANTO
 else:
     cl1, cl2 = st.columns([1.4, 1.2])
 
@@ -263,22 +264,115 @@ else:
 
         if url_clipe and nome_clipe_atual and res_status.get("cantor") == "VÍDEO CLIPE":
             st.markdown(f"<p style='color: #00ff00; font-weight: bold; margin-bottom: 5px;'>▶️ Reproduzindo: {nome_clipe_atual}</p>", unsafe_allow_html=True)
-            video_id_unico = f"vid_{abs(hash(url_clipe))}"
-            st.markdown(f"""
-                <div class="video-clipe-box">
-                    <video id="p-{video_id_unico}" autoplay muted loop playsinline>
+            
+            # HTML encapsulado estritamente dentro das dimensões do retângulo do vídeo clipe (430x306) com os controlos reduzidos integrados
+            mini_player_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body, html {{
+                        margin: 0; padding: 0; width: 430px; height: 306px; background: black; overflow: hidden;
+                    }}
+                    .mini-container {{
+                        position: relative; width: 430px; height: 306px; background: black; display: flex; justify-content: center; align-items: center;
+                    }}
+                    video {{
+                        width: 100%; height: 100%; object-fit: fill;
+                    }}
+                    .mini-controls {{
+                        position: absolute;
+                        bottom: 5px;
+                        left: 5px;
+                        right: 5px;
+                        background: rgba(0, 0, 0, 0.85);
+                        border: 1px solid #ffd700;
+                        padding: 5px 10px;
+                        border-radius: 6px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        box-sizing: border-box;
+                    }}
+                    .mini-controls button {{
+                        background: #ffd700;
+                        border: none;
+                        color: black;
+                        font-weight: bold;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 0.8rem;
+                    }}
+                    .mini-controls input[type=range] {{
+                        cursor: pointer;
+                        accent-color: #ffd700;
+                        height: 4px;
+                    }}
+                    .mini-time {{
+                        color: white;
+                        font-family: monospace;
+                        font-size: 0.75rem;
+                    }}
+                </style>
+            </head>
+            <body>
+                <div class="mini-container">
+                    <video id="mini-video" autoplay loop muted playsinline>
                         <source src="{url_clipe}" type="video/mp4">
-                        Seu navegador não suporta vídeo.
                     </video>
+                    
+                    <div class="mini-controls">
+                        <button id="btn-play-pause" onclick="togglePlay()">⏸️</button>
+                        <span id="mini-time" class="mini-time">00:00</span>
+                        <input type="range" id="mini-seek" value="0" min="0" max="100" step="0.1" style="flex-grow: 1;" oninput="mudarSeek(this.value)">
+                        <button onclick="mudarAudio()" id="btn-audio" style="background: #333; color: white;">🔇</button>
+                    </div>
                 </div>
+                
                 <script>
-                    const vElement = document.getElementById('p-{video_id_unico}');
-                    if (vElement) {{
-                        vElement.currentTime = 0;
-                        vElement.play().catch(function(e) {{ console.log("Autoplay bloqueado:", e); }});
+                    const v = document.getElementById('mini-video');
+                    const seek = document.getElementById('mini-seek');
+                    const timeLbl = document.getElementById('mini-time');
+                    const btnPlay = document.getElementById('btn-play-pause');
+                    const btnAudio = document.getElementById('btn-audio');
+
+                    v.play().catch(e => console.log(e));
+
+                    v.ontimeupdate = function() {{
+                        if (v.duration) {{
+                            seek.value = (v.currentTime / v.duration) * 100;
+                            let m = Math.floor(v.currentTime / 60);
+                            let s = Math.floor(v.currentTime % 60);
+                            timeLbl.innerText = (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
+                        }}
+                    }};
+
+                    function togglePlay() {{
+                        if (v.paused) {{
+                            v.play();
+                            btnPlay.innerText = "⏸️";
+                        }} else {{
+                            v.pause();
+                            btnPlay.innerText = "▶️";
+                        }}
+                    }}
+
+                    function mudarSeek(val) {{
+                        if (v.duration) {{
+                            v.currentTime = (val * v.duration) / 100;
+                        }}
+                    }}
+
+                    function mudarAudio() {{
+                        v.muted = !v.muted;
+                        btnAudio.innerText = v.muted ? "🔇" : "🔊";
                     }}
                 </script>
-            """, unsafe_allow_html=True)
+            </body>
+            </html>
+            """
+            components.html(mini_player_html, height=316, scrolling=False)
         else:
             st.markdown("""
                 <div class="video-clipe-box" style="display: flex; align-items: center; justify-content: center; text-align: center; color: #888; padding: 20px;">
