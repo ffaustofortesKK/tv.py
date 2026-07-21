@@ -18,32 +18,35 @@ st.markdown("""
         .musica-style { color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
         .video-container { 
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; 
-            background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; 
+            background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99999; 
         }
         
-        /* Custom Controls Overlay para o vídeo em tela cheia */
+        /* Custom Controls Overlay para o vídeo em tela cheia - Garante visibilidade e eventos por cima do vídeo */
         .custom-controls {
             position: absolute;
-            bottom: 20px;
-            width: 80%;
-            background: rgba(0, 0, 0, 0.7);
-            padding: 15px;
-            border-radius: 10px;
+            bottom: 30px;
+            width: 85%;
+            background: rgba(0, 0, 0, 0.85);
+            border: 2px solid #ffd700;
+            padding: 15px 20px;
+            border-radius: 12px;
             display: flex;
             align-items: center;
             gap: 15px;
-            z-index: 10000;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            z-index: 2147483647;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+            pointer-events: auto;
         }
         .custom-controls button {
             background: #ffd700;
             border: none;
             color: black;
             font-weight: bold;
-            padding: 8px 15px;
-            border-radius: 5px;
+            padding: 10px 18px;
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 1.1rem;
+            pointer-events: auto;
         }
         .custom-controls button:hover {
             background: #ffc700;
@@ -51,12 +54,13 @@ st.markdown("""
         .custom-controls input[type=range] {
             cursor: pointer;
             accent-color: #ffd700;
+            pointer-events: auto;
         }
         .time-display {
             color: white;
             font-family: monospace;
-            font-size: 1rem;
-            min-width: 100px;
+            font-size: 1.1rem;
+            min-width: 120px;
             text-align: center;
         }
         
@@ -130,7 +134,7 @@ if comando == "play":
     if url_video:
         st.markdown(r"""
             <div class="video-container" id="container-video">
-                <video id="karaoke-video" playsinline>
+                <video id="karaoke-video" playsinline style="width: 100%; height: 100%; object-fit: contain;">
                     <source src="""" + url_video + """" type="video/mp4">
                     O seu navegador não suporta reprodução de vídeo.
                 </video>
@@ -140,7 +144,7 @@ if comando == "play":
                     <span id="current-time" class="time-display">00:00 / 00:00</span>
                     <input type="range" id="seek-bar" value="0" min="0" max="100" step="0.1" style="flex-grow: 1;" oninput="mudarProgresso(this.value)">
                     <span style="color: white; font-weight: bold;">🔊 Som</span>
-                    <input type="range" id="volume-bar" min="0" max="1" step="0.05" value="1" style="width: 100px;" oninput="mudarVolume(this.value)">
+                    <input type="range" id="volume-bar" min="0" max="1" step="0.05" value="1" style="width: 120px;" oninput="mudarVolume(this.value)">
                     <button onclick="proximaMusicaForçada()" style="background: #ff4444; color: white;">⏭️ Avançar</button>
                 </div>
             </div>
@@ -152,12 +156,17 @@ if comando == "play":
                 const timeDisplay = document.getElementById('current-time');
                 const btnPlayPause = document.getElementById('btn-play-pause');
 
+                // Força o volume máximo e som ativado por padrão
                 vid.muted = false;
+                vid.volume = 1.0;
+                
                 vid.play().catch(function(error) {
-                    console.log("Autoplay com som bloqueado, tentando com mudo automático...", error);
+                    console.log("Autoplay com som bloqueado pelo navegador, tentando ativação forçada...", error);
                     vid.muted = true;
-                    vid.play();
-                    volumeBar.value = 0;
+                    vid.play().then(() => {
+                        vid.muted = false;
+                        volumeBar.value = 1;
+                    });
                 });
 
                 function formatarTempo(segundos) {
@@ -192,8 +201,8 @@ if comando == "play":
                 }
 
                 function mudarVolume(valor) {
-                    vid.volume = valor;
-                    vid.muted = (valor == 0);
+                    vid.volume = parseFloat(valor);
+                    vid.muted = (vid.volume === 0);
                 }
 
                 function proximaMusicaForçada() {
