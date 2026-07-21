@@ -4,6 +4,7 @@ import time
 import cloudinary
 import cloudinary.search
 import random
+import json
 
 # Configuração Cloudinary
 cloudinary.config(cloud_name="yhwgjh7g", api_key="347924379441394", api_secret="_gzZOnOmzIk6dlmferYm6ck8S08")
@@ -75,8 +76,9 @@ except:
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
 
-# Função para listar todos os vídeos da pasta "video_clipes" para a aleatoriedade
+# Função robusta para listar todos os vídeos da pasta "video_clipes"
 def obter_todos_videos_da_pasta():
+    urls = []
     try:
         search_result = cloudinary.search.Search()\
             .expression('folder=video_clipes AND resource_type:video')\
@@ -85,19 +87,20 @@ def obter_todos_videos_da_pasta():
         
         lista = search_result.get('resources', [])
         if lista:
-            return [item['secure_url'] for item in lista]
+            urls = [item['secure_url'] for item in lista]
     except Exception as e:
         print("Erro na busca avançada Cloudinary:", e)
     
-    try:
-        fallback = cloudinary.api.resources(type="upload", resource_type="video", max_results=50)
-        geral = fallback.get('resources', [])
-        if geral:
-            return [item['secure_url'] for item in geral]
-    except:
-        pass
-        
-    return []
+    if not urls:
+        try:
+            fallback = cloudinary.api.resources(type="upload", resource_type="video", max_results=50)
+            geral = fallback.get('resources', [])
+            if geral:
+                urls = [item['secure_url'] for item in geral]
+        except Exception as e:
+            print("Erro no fallback Cloudinary:", e)
+            
+    return urls
 
 # 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA TOTAL
 if comando == "play":
@@ -117,13 +120,11 @@ if comando == "play":
                     if (fechado) return;
                     fechado = true;
 
-                    // Limpa imediatamente o Firebase para remover o estado de reprodução
                     fetch('{URL_STATUS}', {{
                         method: 'PATCH',
                         headers: {{ 'Content-Type': 'application/json' }},
                         body: JSON.stringify({{ comando: '', url_video: '', musica: '', cantor: '' }})
                     }}).finally(() => {{
-                        // Recarrega a página para voltar instantaneamente à Fila de Espera
                         window.location.reload();
                     }});
                 }}
@@ -133,12 +134,10 @@ if comando == "play":
                     vid.play();
                 }});
 
-                // Assim que o vídeo termina, fecha obrigatoriamente
                 vid.onended = function() {{
                     fecharKaraoke();
                 }};
 
-                // Fallback de segurança caso o evento onended falhe no browser
                 vid.ontimeupdate = function() {{
                     if (vid.duration && !isNaN(vid.duration)) {{
                         if (vid.currentTime >= (vid.duration - 0.4)) {{
@@ -163,7 +162,7 @@ if comando == "play":
         requests.patch(URL_STATUS, json={"comando": ""})
         st.rerun()
 
-# 2. CONTAGEM DECRESCENTE (3, 2, 1, 0) - ACIONADA QUANDO O CLIENTE COMEÇA A MÚSICA (aguardando_play)
+# 2. CONTAGEM DECRESCENTE (3, 2, 1, 0)
 elif comando == "aguardando_play":
     st.markdown(f"""
         <div style='text-align:center; padding:80px; color:white;'>
@@ -208,7 +207,8 @@ else:
         lista_videos = obter_todos_videos_da_pasta()
         if lista_videos:
             random.shuffle(lista_videos)
-            videos_json = str(lista_videos).replace("'", '"')
+            # Conversão segura utilizando json.dumps para evitar falhas de sintaxe no JavaScript
+            videos_json = json.dumps(lista_videos)
             
             st.markdown(f"""
                 <div class="video-clipe-box" id="caixa-clipes">
@@ -232,7 +232,7 @@ else:
                     }}
                     
                     function iniciarPlayerClipe() {{
-                        if (listaUrls.length === 0) return;
+                        if (!listaUrls || listaUrls.length === 0) return;
                         
                         v1.src = obterProximoUrl();
                         v1.play().catch(e => console.log("Autoplay bloqueado:", e));
@@ -285,7 +285,7 @@ else:
                 </script>
             """, unsafe_allow_html=True)
         else:
-            st.warning("Nenhum vídeo encontrado na pasta 'video_clipes'.")
+            st.warning("A carregar vídeos do Cloudinary ou pasta vazia...")
 
     time.sleep(5)
     st.rerun()
