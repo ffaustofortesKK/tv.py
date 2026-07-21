@@ -104,27 +104,43 @@ if comando == "play":
     if url_video:
         st.markdown(f"""
             <div class="video-container" id="container-video">
-                <video id="karaoke-video" autoplay playsinline controls>
+                <video id="karaoke-video" autoplay playsinline>
                     <source src="{url_video}" type="video/mp4">
                     O seu navegador não suporta reprodução de vídeo.
                 </video>
             </div>
             <script>
                 const vid = document.getElementById('karaoke-video');
+                
+                function fecharKaraoke() {{
+                    // Envia requisição síncrona/beacon ou fetch prioritário para limpar o Firebase
+                    fetch('{URL_STATUS}', {{
+                        method: 'PATCH',
+                        headers: {{ 'Content-Type': 'application/json' }},
+                        body: JSON.stringify({{ comando: 'fim', url_video: '', musica: '', cantor: '' }})
+                    }}).finally(() => {{
+                        // Força o reload imediato da página independentemente da resposta
+                        window.location.reload();
+                    }});
+                }}
+
                 vid.play().catch(error => {{
                     vid.muted = true;
                     vid.play();
                 }});
 
-                // Assim que o karaoke termina, limpa o status no Firebase para 'fim' e recarrega a página de imediato
+                // Assim que o vídeo termina, fecha obrigatoriamente
                 vid.onended = function() {{
-                    fetch('{URL_STATUS}', {{
-                        method: 'PATCH',
-                        headers: {{ 'Content-Type': 'application/json' }},
-                        body: JSON.stringify({{ comando: 'fim', url_video: '', musica: '', cantor: '' }})
-                    }}).then(() => {{
-                        window.location.href = window.location.href;
-                    }});
+                    fecharKaraoke();
+                }};
+
+                // Fallback de segurança caso o evento onended falhe por algum motivo no browser
+                vid.ontimeupdate = function() {{
+                    if (vid.duration && !isNaN(vid.duration)) {{
+                        if (vid.currentTime >= (vid.duration - 0.5)) {{
+                            fecharKaraoke();
+                        }}
+                    }}
                 }};
             </script>
         """, unsafe_allow_html=True)
@@ -133,7 +149,6 @@ if comando == "play":
             time.sleep(2)
             try:
                 check_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
-                # Se o comando deixou de ser 'play' (ex: foi resetado para 'fim' ou vazio), sai do loop e atualiza a página
                 if check_status.get("comando") != "play":
                     st.rerun()
             except:
@@ -224,7 +239,6 @@ else:
                         function configurarMonitor(videoAtivo, videoInativo) {{
                             videoAtivo.ontimeupdate = function() {{
                                 if (videoAtivo.duration && !isNaN(videoAtivo.duration)) {{
-                                    // Faltam 5 segundos para acabar o vídeo clipe atual
                                     if ((videoAtivo.duration - videoAtivo.currentTime) <= 5 && !videoInativo.dataset.carregado) {{
                                         videoInativo.dataset.carregado = "true";
                                         videoInativo.src = obterProximoUrl();
@@ -251,11 +265,10 @@ else:
                     }}
                     
                     if (!window.__clipeIniciado) {{
-                        window.__clipeIniciado = true;
+                        window.__clipoIniciado = true;
                         iniciarPlayerClipe();
                     }}
                     
-                    // Verifica em background se o comando mudou para iniciar a contagem ou tocar o karaoke
                     setInterval(() => {{
                         fetch('{URL_STATUS}?nocache=' + Date.now())
                             .then(res => res.json())
