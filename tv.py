@@ -144,7 +144,7 @@ if comando == "play":
                             fecharKaraoke();
                         }}
                     }}
-                }};
+                }}
             </script>
         """, unsafe_allow_html=True)
 
@@ -207,7 +207,6 @@ else:
         lista_videos = obter_todos_videos_da_pasta()
         if lista_videos:
             random.shuffle(lista_videos)
-            # Conversão segura utilizando json.dumps para evitar falhas de sintaxe no JavaScript
             videos_json = json.dumps(lista_videos)
             
             st.markdown(f"""
