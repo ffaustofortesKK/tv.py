@@ -100,10 +100,9 @@ except:
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
 
-# 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA CHEIA COM CONTROLOS
+# 1. EXIBIÇÃO DO VÍDEO DE KARAOKE EM TELA CHEIA COM CONTROLES COMPLETOS
 if comando == "play":
     if url_video:
-        # Correção da injeção de string para evitar quebras no HTML/JS
         html_code = f"""
             <div class="video-container" id="container-video">
                 <video id="karaoke-video" playsinline style="width: 100%; height: 100%; object-fit: contain;">
@@ -131,19 +130,19 @@ if comando == "play":
                 vid.muted = false;
                 vid.volume = 1.0;
                 
-                vid.play().catch(function(error) {
+                vid.play().catch(function(error) {{
                     vid.muted = true;
-                    vid.play().then(() => {
+                    vid.play().then(() => {{
                         vid.muted = false;
                         volumeBar.value = 1;
-                    });
-                });
+                    }});
+                }});
 
                 function formatarTempo(segundos) {{
                     let m = Math.floor(segundos / 60);
                     let s = Math.floor(segundos % 60);
                     return (m < 10 ? "0" + m : m) + ":" + (s < 10 ? "0" + s : s);
-                }}
+                }
 
                 vid.ontimeupdate = function() {{
                     if (vid.duration) {{
