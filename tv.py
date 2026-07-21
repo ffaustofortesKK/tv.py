@@ -38,12 +38,13 @@ url_video = res_status.get("url_video")
 def obter_todos_videos_da_pasta():
     urls = []
     try:
-        fallback = cloudinary.api.resources(type="upload", resource_type="video", max_results=100)
-        geral = fallback.get('resources', [])
+        # Busca específica dentro da pasta/prefixo video_clipes no Cloudinary
+        result = cloudinary.api.resources(type="upload", resource_type="video", prefix="video_clipes/", max_results=100)
+        geral = result.get('resources', [])
         for item in geral:
-            public_id = item.get('public_id', '')
-            if 'video_clipes' in public_id or not urls:
-                urls.append(item['secure_url'])
+            secure_url = item.get('secure_url')
+            if secure_url:
+                urls.append(secure_url)
     except Exception as e:
         print("Erro ao buscar vídeos no Cloudinary:", e)
     return urls
@@ -160,11 +161,11 @@ else:
         lista_videos = obter_todos_videos_da_pasta()
         if not lista_videos:
             lista_videos = ["https://res.cloudinary.com/yhwgjh7g/video/upload/v1/video_clipes/amostra.mp4"]
-            
+        
+        # Embaralha os vídeos para garantir variedade na reprodução
         random.shuffle(lista_videos)
         videos_json = json.dumps(lista_videos)
         
-        # Renderização correta com st.components.v1.html para exibir o player com controlos interativos perfeitamente
         html_player = f"""
         <!DOCTYPE html>
         <html>
@@ -377,7 +378,6 @@ else:
                 
                 setTimeout(iniciarPlayerClipe, 200);
                 
-                // Monitoriza comandos do DJ em tempo real
                 setInterval(() => {{
                     fetch('{URL_STATUS}?nocache=' + Date.now())
                         .then(res => res.json())
