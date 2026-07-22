@@ -166,10 +166,10 @@ else:
             <head>
                 <style>
                     body, html {{
-                        margin-left: -80px; padding: 0; width: 1049px; height: 800px; background: black; overflow: hidden;
+                        margin: 0; padding: 0; width: 430px; height: 306px; background: black; overflow: hidden;
                     }}
                     .mini-container {{
-                        position: relative; width: px; height: 306px; background: black; display: flex; justify-content: center; align-items: center;
+                        position: relative; width: 430px; height: 306px; background: black; display: flex; justify-content: center; align-items: center;
                     }}
                     video {{
                         width: 100%; height: 100%; object-fit: fill;
