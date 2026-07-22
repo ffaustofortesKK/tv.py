@@ -248,7 +248,7 @@ else:
             components.html(mini_player_html, height=316, scrolling=False)
         else:
             st.markdown("""
-                <div style="width: 430px; height: 306px; border: 2px solid #ffd700; border-radius: 6px; display: flex; align-items: center; justify-content: center; text-align: center; color: #888; padding: 20px; background: black; box-sizing: border-box;">
+                <div style="width: 1049px; height: 719px; border: 2px solid #ffd700; border-radius: 6px; display: flex; align-items: center; justify-content: center; text-align: center; color: #888; padding: 20px; background: black; box-sizing: border-box;">
                     <p style="margin: 0; font-size: 1rem;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                 </div>
             """, unsafe_allow_html=True)
