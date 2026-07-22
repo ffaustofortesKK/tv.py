@@ -166,7 +166,7 @@ else:
             <head>
                 <style>
                     body, html {{
-                        margin-left: -30px; padding: 0; width: 1049px; height: 719px; background: black; overflow: hidden;
+                        margin-left: -80px; padding: 0; width: 1049px; height: 800px; background: black; overflow: hidden;
                     }}
                     .mini-container {{
                         position: relative; width: px; height: 306px; background: black; display: flex; justify-content: center; align-items: center;
