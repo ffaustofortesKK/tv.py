@@ -17,8 +17,8 @@ st.markdown("""
         .cantor-style { color: white; font-weight: bold; text-shadow: 2px 2px 4px #000; }
         .musica-style { color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
         .video-clipe-box { 
-            width: 516px; 
-            height: 367px;
+            width: 645px; 
+            height: 459px;
             background: black; 
             padding: 0px; 
             border-radius: 4px; 
@@ -134,9 +134,9 @@ elif comando == "executando_karaoke" and url_video:
     time.sleep(3)
     st.rerun()
 
-# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE AUMENTADO EM 20% À DIREITA
+# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE DENTRO DO RETÂNGULO À DIREITA
 else:
-    cl1, cl2 = st.columns([1.4, 1.2])
+    cl1, cl2 = st.columns([1.2, 1.4])
 
     with cl1:
         st.markdown("<h1 style='color:gold; font-size: 2.2rem; margin-bottom: 15px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
@@ -165,22 +165,22 @@ else:
             <head>
                 <style>
                     body, html {{
-                        margin: 0; padding: 0; width: 516px; height: 367px; background: black; overflow: hidden;
+                        margin: 0; padding: 0; width: 645px; height: 459px; background: black; overflow: hidden;
                     }}
                     .mini-container {{
-                        position: relative; width: 516px; height: 367px; background: black; display: flex; justify-content: center; align-items: center;
+                        position: relative; width: 645px; height: 459px; background: black; display: flex; justify-content: center; align-items: center;
                     }}
                     video {{
                         width: 100%; height: 100%; object-fit: fill;
                     }}
                     .mini-controls {{
                         position: absolute;
-                        bottom: 6px;
-                        left: 6px;
-                        right: 6px;
+                        bottom: 8px;
+                        left: 8px;
+                        right: 8px;
                         background: rgba(0, 0, 0, 0.85);
                         border: 1px solid #ffd700;
-                        padding: 6px 12px;
+                        padding: 8px 12px;
                         border-radius: 6px;
                         display: flex;
                         align-items: center;
@@ -192,20 +192,20 @@ else:
                         border: none;
                         color: black;
                         font-weight: bold;
-                        padding: 5px 10px;
+                        padding: 6px 12px;
                         border-radius: 4px;
                         cursor: pointer;
-                        font-size: 0.85rem;
+                        font-size: 0.9rem;
                     }}
                     .mini-controls input[type=range] {{
                         cursor: pointer;
                         accent-color: #ffd700;
-                        height: 5px;
+                        height: 6px;
                     }}
                     .mini-time {{
                         color: white;
                         font-family: monospace;
-                        font-size: 0.8rem;
+                        font-size: 0.85rem;
                     }}
                 </style>
             </head>
@@ -264,11 +264,11 @@ else:
             </body>
             </html>
             """
-            components.html(mini_player_html, height=377, scrolling=False)
+            components.html(mini_player_html, height=475, scrolling=False)
         else:
             st.markdown("""
                 <div class="video-clipe-box" style="display: flex; align-items: center; justify-content: center; text-align: center; color: #888; padding: 20px;">
-                    <p style="margin: 0; font-size: 1rem;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
+                    <p style="margin: 0; font-size: 1.1rem;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                 </div>
             """, unsafe_allow_html=True)
 
