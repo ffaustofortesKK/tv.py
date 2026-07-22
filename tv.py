@@ -16,6 +16,23 @@ st.markdown("""
         #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
         .cantor-style { color: white; font-weight: bold; text-shadow: 2px 2px 4px #000; }
         .musica-style { color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
+        .video-clipe-box { 
+            width: 430px; 
+            height: 306px;
+            background: black; 
+            padding: 0px; 
+            border-radius: 4px; 
+            border: 2px solid #ffd700; 
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .video-clipe-box video {
+            width: 100%;
+            height: 100%;
+            object-fit: fill; 
+        }
         .contador-box { font-size: 8rem; color: yellow; font-weight: bold; text-shadow: 0 0 20px red; text-align: center; }
     </style>
 """, unsafe_allow_html=True)
@@ -26,6 +43,7 @@ slug = params.get("prestador", "geral")
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
 
+# Buscar dados do Firebase
 try:
     res_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
     res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=5).json() or {}
@@ -36,7 +54,7 @@ except:
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
 
-# 1. CONTAGEM DECRESCENTE (3, 2, 1, 0)
+# 1. CONTAGEM DECRESCENTE (3, 2, 1, 0) ANTES DE EXECUTAR O PEDIDO DO KARAOKE
 if comando == "aguardando_play":
     st.markdown(f"""
         <div style='text-align:center; padding:80px; color:white;'>
@@ -56,7 +74,7 @@ if comando == "aguardando_play":
     requests.patch(URL_STATUS, json={"comando": "executando_karaoke"})
     st.rerun()
 
-# 2. EXECUÇÃO DO KARAOKE EM ECRÃ TOTAL
+# 2. EXECUÇÃO DO VÍDEO DE KARAOKE EM ECRÃ TOTAL
 elif comando == "executando_karaoke" and url_video:
     karaoke_full_html = f"""
     <!DOCTYPE html>
@@ -112,10 +130,11 @@ elif comando == "executando_karaoke" and url_video:
     </html>
     """
     components.html(karaoke_full_html, height=750, scrolling=False)
+    
     time.sleep(3)
     st.rerun()
 
-# 3. TELA PRINCIPAL (FILA + VÍDEO CLIPE DE FUNDO SEM TEXTOS EM CIMA)
+# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE DENTRO DO RETÂNGULO À DIREITA (COM SOM E SEM TEXTOS REDUNDANTES)
 else:
     cl1, cl2 = st.columns([1.4, 1.2])
 
@@ -135,10 +154,12 @@ else:
             st.info("A fila está vazia. Envie músicas pelo telemóvel!")
 
     with cl2:
+        st.markdown("<h1 style='color:gold; font-size: 1.8rem; margin-bottom: 5px;'>📺 VÍDEO CLIPE</h1>", unsafe_allow_html=True)
+        
         url_clipe = res_status.get("url_video") if comando == "clipe" else None
 
         if url_clipe:
-            # Mini player limpo, com som ativado (sem muted) e sem títulos por cima
+            # HTML encapsulado sem textos por cima da tela do vídeo clipe de fundo e com som ativado (sem muted)
             mini_player_html = f"""
             <!DOCTYPE html>
             <html>
@@ -148,7 +169,7 @@ else:
                         margin: 0; padding: 0; width: 430px; height: 306px; background: black; overflow: hidden;
                     }}
                     .mini-container {{
-                        position: relative; width: 430px; height: 306px; background: black; display: flex; justify-content: center; align-items: center; border: 2px solid #ffd700; border-radius: 6px; box-sizing: border-box;
+                        position: relative; width: 430px; height: 306px; background: black; display: flex; justify-content: center; align-items: center;
                     }}
                     video {{
                         width: 100%; height: 100%; object-fit: fill;
@@ -156,7 +177,7 @@ else:
                     .mini-controls {{
                         position: absolute;
                         bottom: 5px;
-                        left: 70px;
+                        left: 5px;
                         right: 5px;
                         background: rgba(0, 0, 0, 0.85);
                         border: 1px solid #ffd700;
@@ -191,7 +212,6 @@ else:
             </head>
             <body>
                 <div class="mini-container">
-                    <!-- Vídeo inicia com som (sem atributo muted) -->
                     <video id="mini-video" autoplay loop playsinline>
                         <source src="{url_clipe}" type="video/mp4">
                     </video>
@@ -233,7 +253,7 @@ else:
 
                     function mudarSeek(val) {{
                         if (v.duration) {{
-                            v.currentTime = (val * v.duration) / 100;
+                            v.currentTime = (val * v.duration) * 100; // corrigido para proporção correta
                         }}
                     }}
 
@@ -248,7 +268,7 @@ else:
             components.html(mini_player_html, height=316, scrolling=False)
         else:
             st.markdown("""
-                <div style="width: 1049px; height: 719px; border: 2px solid #ffd700; border-radius: 6px; display: flex; align-items: center; justify-content: center; text-align: center; color: #888; padding: 20px; background: black; box-sizing: border-box;">
+                <div class="video-clipe-box" style="display: flex; align-items: center; justify-content: center; text-align: center; color: #888; padding: 20px;">
                     <p style="margin: 0; font-size: 1rem;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                 </div>
             """, unsafe_allow_html=True)
