@@ -26,6 +26,7 @@ slug = params.get("prestador", "geral")
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
 
+# Buscar dados do Firebase
 try:
     res_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
     res_pedidos = requests.get(f"{URL_PEDIDOS}?nocache={time.time()}", timeout=5).json() or {}
@@ -35,28 +36,66 @@ except:
 
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
+url_clipe_atual = res_status.get("url_video") if comando == "clipe" else None
 
-# 1. CONTAGEM DECRESCENTE (3, 2, 1, 0)
+# 1. CONTAGEM DECRESCENTE (3, 2, 1, 0) - O VÍDEO CLIPE CONTINUA A TOCAR AO LADO E SÓ APARECE O NOME DO CANTOR
 if comando == "aguardando_play":
-    st.markdown(f"""
-        <div style='text-align:center; padding:80px; color:white;'>
-            <h1 style='font-size: 2.5rem; color: #00ff00;'>A CHAMAR AO PALCO:</h1>
-            <h2 style='font-size: 3.5rem;' class="cantor-style">{str(res_status.get('cantor', '')).upper()}</h2>
-            <h3 style='font-size: 2rem; color: yellow;'>{str(res_status.get('musica', '')).upper()}</h3>
-            <hr style='width: 50%; margin: 20px auto; border-color: #444;'>
-            <p style='font-size: 1.5rem; color: #ccc;'>O palco vai abrir em:</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    placeholder_contagem = st.empty()
-    for i in [3, 2, 1, 0]:
-        placeholder_contagem.markdown(f'<div class="contador-box">{i}</div>', unsafe_allow_html=True)
-        time.sleep(1)
-    
-    requests.patch(URL_STATUS, json={"comando": "executando_karaoke"})
-    st.rerun()
+    cl1, cl2 = st.columns([1.4, 1.2])
 
-# 2. EXECUÇÃO DO KARAOKE EM ECRÃ TOTAL
+    with cl1:
+        st.markdown(f"""
+            <div style='text-align:center; padding:40px; color:white;'>
+                <h1 style='font-size: 2.2rem; color: #00ff00;'>A CHAMAR AO PALCO:</h1>
+                <h2 style='font-size: 3rem;' class="cantor-style">{str(res_status.get('cantor', '')).upper()}</h2>
+                <hr style='width: 50%; margin: 15px auto; border-color: #444;'>
+                <p style='font-size: 1.2rem; color: #ccc;'>O palco vai abrir em:</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        placeholder_contagem = st.empty()
+        for i in [3, 2, 1, 0]:
+            placeholder_contagem.markdown(f'<div class="contador-box">{i}</div>', unsafe_allow_html=True)
+            time.sleep(1)
+        
+        # Atualiza o comando para modo de execução de karaoke
+        requests.patch(URL_STATUS, json={"comando": "executando_karaoke"})
+        st.rerun()
+
+    with cl2:
+        st.markdown("<h1 style='color:gold; font-size: 1.8rem; margin-bottom: 5px;'>📺 VÍDEO CLIPE (EM REPRODUÇÃO)</h1>", unsafe_allow_html=True)
+        if url_clipe_atual:
+            mini_player_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body, html {{ margin: 0; padding: 0; width: 430px; height: 306px; background: black; overflow: hidden; }}
+                    .mini-container {{ position: relative; width: 430px; height: 306px; background: black; display: flex; justify-content: center; align-items: center; }}
+                    video {{ width: 100%; height: 100%; object-fit: fill; }}
+                </style>
+            </head>
+            <body>
+                <div class="mini-container">
+                    <video id="mini-video" autoplay loop muted playsinline>
+                        <source src="{url_clipe_atual}" type="video/mp4">
+                    </video>
+                </div>
+                <script>
+                    const v = document.getElementById('mini-video');
+                    v.play().catch(e => console.log(e));
+                </script>
+            </body>
+            </html>
+            """
+            components.html(mini_player_html, height=316, scrolling=False)
+        else:
+            st.markdown("""
+                <div style="width: 430px; height: 306px; border: 2px solid #ffd700; display: flex; align-items: center; justify-content: center; color: #888; text-align: center; border-radius: 4px;">
+                    <p>Nenhum clipe em reprodução</p>
+                </div>
+            """, unsafe_allow_html=True)
+
+# 2. EXECUÇÃO DO VÍDEO DE KARAOKE EM ECRÃ TOTAL COM ÁUDIO ANTECIPADO (ENTRA 2 SEGUNDOS ANTES)
 elif comando == "executando_karaoke" and url_video:
     karaoke_full_html = f"""
     <!DOCTYPE html>
@@ -78,16 +117,30 @@ elif comando == "executando_karaoke" and url_video:
         </style>
     </head>
     <body>
-        <div class="fullscreen-container">
+        <div class="fullscreen-container" id="container-principal">
             <button class="back-btn" onclick="fecharKaraoke()">✖ Fechar / Fim</button>
-            <video id="karaoke-video" autoplay controls playsinline>
+            <video id="karaoke-video" playsinline>
                 <source src="{url_video}" type="video/mp4">
             </video>
         </div>
         <script>
             const v = document.getElementById('karaoke-video');
-            v.play().catch(e => console.log(e));
             
+            // Inicia o vídeo em mudo e começa a reproduzir
+            v.muted = true;
+            v.play().then(() => {{
+                // 2 segundos antes do fim do vídeo (ou se for maior que 2s, ativa o som logo nos primeiros momentos / transição)
+                // Ajuste para garantir que o áudio do karaoke entra antes da transição total
+                setTimeout(() => {{
+                    v.muted = false;
+                }}, Math.max(0, (v.duration ? v.duration - 2 : 1) * 1000));
+            }}).catch(e => console.log(e));
+
+            // Garante ativação de som imediata se o vídeo for curto, ou transição fluida
+            setTimeout(() => {{
+                v.muted = false;
+            }}, 500);
+
             v.onended = function() {{
                 fetch("{URL_STATUS}", {{
                     method: 'PATCH',
@@ -112,10 +165,11 @@ elif comando == "executando_karaoke" and url_video:
     </html>
     """
     components.html(karaoke_full_html, height=750, scrolling=False)
+    
     time.sleep(3)
     st.rerun()
 
-# 3. TELA PRINCIPAL (FILA + VÍDEO CLIPE DE FUNDO SEM TEXTOS EM CIMA)
+# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE DENTRO DO RETÂNGULO À DIREITA
 else:
     cl1, cl2 = st.columns([1.4, 1.2])
 
@@ -135,72 +189,44 @@ else:
             st.info("A fila está vazia. Envie músicas pelo telemóvel!")
 
     with cl2:
+        st.markdown("<h1 style='color:gold; font-size: 1.8rem; margin-bottom: 5px;'>📺 VÍDEO CLIPE (FUNDO)</h1>", unsafe_allow_html=True)
+        
         url_clipe = res_status.get("url_video") if comando == "clipe" else None
+        nome_clipe_atual = res_status.get("musica") if comando == "clipe" else None
 
         if url_clipe:
-            # Mini player limpo, com som ativado (sem muted) e sem títulos por cima
+            if nome_clipe_atual:
+                st.markdown(f"<p style='color: #00ff00; font-weight: bold; margin-bottom: 5px;'>▶️ Reproduzindo: {nome_clipe_atual}</p>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<p style='color: #00ff00; font-weight: bold; margin-bottom: 5px;'>▶️ Reproduzindo vídeo</p>", unsafe_allow_html=True)
+            
             mini_player_html = f"""
             <!DOCTYPE html>
             <html>
             <head>
                 <style>
-                    body, html {{
-                        margin: 0; padding: 0; width: 430px; height: 306px; background: black; overflow: hidden;
-                    }}
-                    .mini-container {{
-                        position: relative; width: 430px; height: 306px; background: black; display: flex; justify-content: center; align-items: center; border: 2px solid #ffd700; border-radius: 6px; box-sizing: border-box;
-                    }}
-                    video {{
-                        width: 100%; height: 100%; object-fit: fill;
-                    }}
+                    body, html {{ margin: 0; padding: 0; width: 430px; height: 306px; background: black; overflow: hidden; }}
+                    .mini-container {{ position: relative; width: 430px; height: 306px; background: black; display: flex; justify-content: center; align-items: center; }}
+                    video {{ width: 100%; height: 100%; object-fit: fill; }}
                     .mini-controls {{
-                        position: absolute;
-                        bottom: 5px;
-                        left: 5px;
-                        right: 5px;
-                        background: rgba(0, 0, 0, 0.85);
-                        border: 1px solid #ffd700;
-                        padding: 5px 10px;
-                        border-radius: 6px;
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        box-sizing: border-box;
+                        position: absolute; bottom: 5px; left: 5px; right: 5px; background: rgba(0, 0, 0, 0.85);
+                        border: 1px solid #ffd700; padding: 5px 10px; border-radius: 6px; display: flex; align-items: center; gap: 8px; box-sizing: border-box;
                     }}
-                    .mini-controls button {{
-                        background: #ffd700;
-                        border: none;
-                        color: black;
-                        font-weight: bold;
-                        padding: 4px 8px;
-                        border-radius: 4px;
-                        cursor: pointer;
-                        font-size: 0.8rem;
-                    }}
-                    .mini-controls input[type=range] {{
-                        cursor: pointer;
-                        accent-color: #ffd700;
-                        height: 4px;
-                    }}
-                    .mini-time {{
-                        color: white;
-                        font-family: monospace;
-                        font-size: 0.75rem;
-                    }}
+                    .mini-controls button {{ background: #ffd700; border: none; color: black; font-weight: bold; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }}
+                    .mini-controls input[type=range] {{ cursor: pointer; accent-color: #ffd700; height: 4px; }}
+                    .mini-time {{ color: white; font-family: monospace; font-size: 0.75rem; }}
                 </style>
             </head>
             <body>
                 <div class="mini-container">
-                    <!-- Vídeo inicia com som (sem atributo muted) -->
-                    <video id="mini-video" autoplay loop playsinline>
+                    <video id="mini-video" autoplay loop muted playsinline>
                         <source src="{url_clipe}" type="video/mp4">
                     </video>
-                    
                     <div class="mini-controls">
                         <button id="btn-play-pause" onclick="togglePlay()">⏸️</button>
                         <span id="mini-time" class="mini-time">00:00</span>
                         <input type="range" id="mini-seek" value="0" min="0" max="100" step="0.1" style="flex-grow: 1;" oninput="mudarSeek(this.value)">
-                        <button onclick="mudarAudio()" id="btn-audio" style="background: #ffd700; color: black;">🔊</button>
+                        <button onclick="mudarAudio()" id="btn-audio" style="background: #333; color: white;">🔇</button>
                     </div>
                 </div>
                 <script>
@@ -222,19 +248,12 @@ else:
                     }};
 
                     function togglePlay() {{
-                        if (v.paused) {{
-                            v.play();
-                            btnPlay.innerText = "⏸️";
-                        }} else {{
-                            v.pause();
-                            btnPlay.innerText = "▶️";
-                        }}
+                        if (v.paused) {{ v.play(); btnPlay.innerText = "⏸️"; }}
+                        else {{ v.pause(); btnPlay.innerText = "▶️"; }}
                     }}
 
                     function mudarSeek(val) {{
-                        if (v.duration) {{
-                            v.currentTime = (val * v.duration) / 100;
-                        }}
+                        if (v.duration) {{ v.currentTime = (val * v.duration) / 100; }}
                     }}
 
                     function mudarAudio() {{
@@ -248,7 +267,7 @@ else:
             components.html(mini_player_html, height=316, scrolling=False)
         else:
             st.markdown("""
-                <div style="width: 430px; height: 306px; border: 2px solid #ffd700; border-radius: 6px; display: flex; align-items: center; justify-content: center; text-align: center; color: #888; padding: 20px; background: black; box-sizing: border-box;">
+                <div class="video-clipe-box" style="width: 430px; height: 306px; border: 2px solid #ffd700; display: flex; align-items: center; justify-content: center; text-align: center; color: #888; padding: 20px; border-radius: 4px;">
                     <p style="margin: 0; font-size: 1rem;">Aguardando o prestador selecionar um vídeo clipe no painel de controle...</p>
                 </div>
             """, unsafe_allow_html=True)
