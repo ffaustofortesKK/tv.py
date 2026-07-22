@@ -43,6 +43,7 @@ slug = params.get("prestador", "geral")
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
 
+# Salvar o último clipe reproduzido na sessão para retornar a ele após o término do karaoke
 if "ultimo_clipe_valido" not in st.session_state:
     st.session_state.ultimo_clipe_valido = ""
 
@@ -60,7 +61,7 @@ url_video = res_status.get("url_video")
 if comando == "clipe" and url_video:
     st.session_state.ultimo_clipe_valido = url_video
 
-# 1. CONTAGEM DECRESCENTE (3, 2, 1, 0) E SALTO AUTOMÁTICO PARA O VÍDEO
+# 1. CONTAGEM DECRESCENTE (3, 2, 1, 0) ANTES DE EXECUTAR O PEDIDO
 if comando == "aguardando_play":
     st.markdown(f"""
         <div style='text-align:center; padding:80px; color:white;'>
@@ -77,33 +78,25 @@ if comando == "aguardando_play":
         placeholder_contagem.markdown(f'<div class="contador-box">{i}</div>', unsafe_allow_html=True)
         time.sleep(1)
     
-    # Passa automaticamente para "play" para iniciar o vídeo de imediato sem cliques
+    # Após a contagem, passa automaticamente para o estado "play" para executar o vídeo de karaoke
     requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 2. EXECUÇÃO AUTOMÁTICA DO VÍDEO DE KARAOKE E RETORNO À FILA AO TERMINAR
+# 2. EXECUÇÃO DO VÍDEO DE KARAOKE COM DETECÇÃO DE FIM (onended)
 elif comando == "play":
     st.markdown(f"<h2 style='text-align: center; color: #00ffcc;'>🎤 A cantar agora: {str(res_status.get('cantor', '')).upper()} - {str(res_status.get('musica', '')).upper()}</h2>", unsafe_allow_html=True)
     
     player_karaoke_html = f"""
     <div style="display: flex; justify-content: center; background: black; width: 100%;">
-        <video id="karaokeVideo" width="85%" autoplay controls style="max-height: 75vh; border-radius: 10px;">
+        <video id="karaokeVideo" width="85%" controls autoplay style="max-height: 75vh; border-radius: 10px;">
             <source src="{url_video}" type="video/mp4">
             O seu browser não suporta vídeo.
         </video>
     </div>
     <script>
         var video = document.getElementById('karaokeVideo');
-        
-        // Garante reprodução automática
-        video.play().catch(error => {{
-            console.log("Autoplay bloqueado pelo browser, tentando com mudo:", error);
-            video.muted = true;
-            video.play();
-        }});
-
-        // Quando o vídeo de karaoke termina, atualiza o Firebase para voltar à fila e ao clipe normal
         video.onended = function() {{
+            // Quando acaba a música de karaoke, reseta o status para voltar automaticamente ao último clipe
             fetch('{URL_STATUS}', {{
                 method: 'PATCH',
                 headers: {{ 'Content-Type': 'application/json' }},
@@ -121,7 +114,7 @@ elif comando == "play":
     """
     components.html(player_karaoke_html, height=550)
 
-# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE À DIREITA
+# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO DENTRO DO RETÂNGULO À DIREITA
 else:
     cl1, cl2 = st.columns([1.4, 1.2])
 
@@ -152,6 +145,7 @@ else:
             else:
                 st.markdown(f"<p style='color: #00ff00; font-weight: bold; margin-bottom: 5px;'>▶️ Reproduzindo vídeo</p>", unsafe_allow_html=True)
             
+            # HTML encapsulado estritamente dentro das dimensões do retângulo do vídeo clipe (430x306)
             mini_player_html = f"""
             <!DOCTYPE html>
             <html>
