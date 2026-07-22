@@ -43,6 +43,10 @@ slug = params.get("prestador", "geral")
 URL_STATUS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/status_{slug}.json"
 URL_PEDIDOS = f"https://grupoffkaraoke-default-rtdb.firebaseio.com/pedidos_{slug}.json"
 
+# Salvar o último clipe reproduzido na sessão para retornar a ele após o término do karaoke
+if "ultimo_clipe_valido" not in st.session_state:
+    st.session_state.ultimo_clipe_valido = ""
+
 # Buscar dados do Firebase
 try:
     res_status = requests.get(f"{URL_STATUS}?nocache={time.time()}", timeout=5).json() or {}
@@ -53,23 +57,17 @@ except:
 
 comando = res_status.get("comando")
 url_video = res_status.get("url_video")
-cantor = res_status.get("cantor")
-musica = res_status.get("musica")
 
-# Guarda o último clipe reproduzido em cache/session state para retornar a ele após o término
 if comando == "clipe" and url_video:
-    st.session_state.ultimo_clipe = url_video
+    st.session_state.ultimo_clipe_valido = url_video
 
-if "ultimo_clipe" not in st.session_state:
-    st.session_state.ultimo_clipe = ""
-
-# 1. CONTAGEM DECRESCENTE ANTES DE EXECUTAR O PEDIDO
+# 1. CONTAGEM DECRESCENTE (3, 2, 1, 0) ANTES DE EXECUTAR O PEDIDO
 if comando == "aguardando_play":
     st.markdown(f"""
         <div style='text-align:center; padding:80px; color:white;'>
             <h1 style='font-size: 2.5rem; color: #00ff00;'>A CHAMAR AO PALCO:</h1>
-            <h2 style='font-size: 3.5rem;' class="cantor-style">{str(cantor or '').upper()}</h2>
-            <h3 style='font-size: 2.0rem; color: yellow;'>{str(musica or '').upper()}</h3>
+            <h2 style='font-size: 3.5rem;' class="cantor-style">{str(res_status.get('cantor', '')).upper()}</h2>
+            <h3 style='font-size: 2rem; color: yellow;'>{str(res_status.get('musica', '')).upper()}</h3>
             <hr style='width: 50%; margin: 20px auto; border-color: #444;'>
             <p style='font-size: 1.5rem; color: #ccc;'>O palco vai abrir em:</p>
         </div>
@@ -80,31 +78,31 @@ if comando == "aguardando_play":
         placeholder_contagem.markdown(f'<div class="contador-box">{i}</div>', unsafe_allow_html=True)
         time.sleep(1)
     
-    # Após a contagem, passa automaticamente para o estado 'play' para exibir o leitor do karaoke
+    # Após a contagem, passa automaticamente para o estado "play" para executar o vídeo de karaoke
     requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 2. EXECUÇÃO DO KARAOKE COM DETETOR DE FIM (onended)
-elif comando == "play" and url_video:
-    st.markdown(f"<h2 style='text-align: center; color: #00ff00; margin-bottom: 10px;'>🎤 A cantar agora: {cantor} - {musica}</h2>", unsafe_allow_html=True)
+# 2. EXECUÇÃO DO VÍDEO DE KARAOKE COM DETECÇÃO DE FIM (onended)
+elif comando == "play":
+    st.markdown(f"<h2 style='text-align: center; color: #00ffcc;'>🎤 A cantar agora: {str(res_status.get('cantor', '')).upper()} - {str(res_status.get('musica', '')).upper()}</h2>", unsafe_allow_html=True)
     
     player_karaoke_html = f"""
-    <div style="display: flex; justify-content: center; align-items: center; background: black; width: 100%; height: 75vh;">
-        <video id="karaokePlayer" width="85%" height="100%" controls autoplay style="max-height: 75vh; border-radius: 10px; object-fit: contain;">
+    <div style="display: flex; justify-content: center; background: black; width: 100%;">
+        <video id="karaokeVideo" width="85%" controls autoplay style="max-height: 75vh; border-radius: 10px;">
             <source src="{url_video}" type="video/mp4">
             O seu browser não suporta vídeo.
         </video>
     </div>
     <script>
-        const v = document.getElementById('karaokePlayer');
-        v.onended = function() {{
-            // Quando a música do karaoke terminar, limpa e retorna automaticamente para o último clipe
+        var video = document.getElementById('karaokeVideo');
+        video.onended = function() {{
+            // Quando acaba a música de karaoke, reseta o status para voltar automaticamente ao último clipe
             fetch('{URL_STATUS}', {{
                 method: 'PATCH',
                 headers: {{ 'Content-Type': 'application/json' }},
                 body: JSON.stringify({{
                     "comando": "clipe",
-                    "url_video": "{st.session_state.ultimo_clipe}",
+                    "url_video": "{st.session_state.ultimo_clipe_valido}",
                     "cantor": "",
                     "musica": ""
                 }})
@@ -114,9 +112,9 @@ elif comando == "play" and url_video:
         }};
     </script>
     """
-    components.html(player_karaoke_html, height=580)
+    components.html(player_karaoke_html, height=550)
 
-# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE À DIREITA
+# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO DENTRO DO RETÂNGULO À DIREITA
 else:
     cl1, cl2 = st.columns([1.4, 1.2])
 
@@ -147,6 +145,7 @@ else:
             else:
                 st.markdown(f"<p style='color: #00ff00; font-weight: bold; margin-bottom: 5px;'>▶️ Reproduzindo vídeo</p>", unsafe_allow_html=True)
             
+            # HTML encapsulado estritamente dentro das dimensões do retângulo do vídeo clipe (430x306)
             mini_player_html = f"""
             <!DOCTYPE html>
             <html>
