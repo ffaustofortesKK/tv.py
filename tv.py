@@ -17,8 +17,8 @@ st.markdown("""
         .cantor-style { color: white; font-weight: bold; text-shadow: 2px 2px 4px #000; }
         .musica-style { color: yellow; font-weight: bold; text-shadow: 2px 2px 4px #000; }
         .video-clipe-box { 
-            width: 645px; 
-            height: 459px;
+            width: 800px; 
+            height: 560px;
             background: black; 
             padding: 0px; 
             border-radius: 4px; 
@@ -134,9 +134,9 @@ elif comando == "executando_karaoke" and url_video:
     time.sleep(3)
     st.rerun()
 
-# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE DENTRO DO RETÂNGULO À DIREITA
+# 3. TELA PRINCIPAL: FILA DE ESPERA À ESQUERDA E VÍDEO CLIPE AMPLIADO À DIREITA
 else:
-    cl1, cl2 = st.columns([1.2, 1.4])
+    cl1, cl2 = st.columns([1.0, 1.8])
 
     with cl1:
         st.markdown("<h1 style='color:gold; font-size: 2.2rem; margin-bottom: 15px;'>🎤 FILA DE ESPERA</h1>", unsafe_allow_html=True)
@@ -165,19 +165,19 @@ else:
             <head>
                 <style>
                     body, html {{
-                        margin: 0; padding: 0; width: 645px; height: 459px; background: black; overflow: hidden;
+                        margin: 0; padding: 0; width: 800px; height: 560px; background: black; overflow: hidden;
                     }}
                     .mini-container {{
-                        position: relative; width: 645px; height: 459px; background: black; display: flex; justify-content: center; align-items: center;
+                        position: relative; width: 800px; height: 560px; background: black; display: flex; justify-content: center; align-items: center;
                     }}
                     video {{
                         width: 100%; height: 100%; object-fit: fill;
                     }}
                     .mini-controls {{
                         position: absolute;
-                        bottom: 8px;
-                        left: 8px;
-                        right: 8px;
+                        bottom: 10px;
+                        left: 10px;
+                        right: 10px;
                         background: rgba(0, 0, 0, 0.85);
                         border: 1px solid #ffd700;
                         padding: 8px 12px;
@@ -264,7 +264,7 @@ else:
             </body>
             </html>
             """
-            components.html(mini_player_html, height=475, scrolling=False)
+            components.html(mini_player_html, height=575, scrolling=False)
         else:
             st.markdown("""
                 <div class="video-clipe-box" style="display: flex; align-items: center; justify-content: center; text-align: center; color: #888; padding: 20px;">
