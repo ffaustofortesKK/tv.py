@@ -8,7 +8,7 @@ import streamlit.components.v1 as components
 # Configuração Cloudinary
 cloudinary.config(cloud_name="yhwgjh7g", api_key="347924379441394", api_secret="_gzZOnOmzIk6dlmferYm6ck8S08")
 
-st.set_page_config(page_title="FF KARAOKE - TV", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="FF KARAOKE - TV", layout="wide")
 
 st.markdown("""
     <style>
@@ -77,10 +77,11 @@ if comando == "aguardando_play":
         placeholder_contagem.markdown(f'<div class="contador-box">{i}</div>', unsafe_allow_html=True)
         time.sleep(1)
     
+    # Avança automaticamente para o estado "play" sem precisar de cliques
     requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 2. EXECUÇÃO DO VÍDEO DE KARAOKE (TELA CHEIA, SOM ATIVO E MONITORIZAÇÃO DE MUDANÇA DE COMANDO)
+# 2. EXECUÇÃO DO VÍDEO DE KARAOKE (TELA CHEIA, SOM ATIVO E RETORNO AUTOMÁTICO À FILA)
 elif comando == "play":
     player_karaoke_html = f"""
     <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99999;">
@@ -95,7 +96,7 @@ elif comando == "play":
     <script>
         var video = document.getElementById('karaokeVideo');
         
-        // Força som ativo imediatamente
+        // Garante som ativo e reprodução imediata
         video.muted = false;
         video.play().catch(error => {{
             console.log("Erro no autoplay com som, a tentar reativar:", error);
@@ -104,7 +105,7 @@ elif comando == "play":
             setTimeout(() => {{ video.muted = false; }}, 500);
         }});
 
-        // Se o vídeo terminar por si só, limpa o estado e volta para a fila de espera
+        // Assim que o vídeo termina, pára imediatamente e limpa o estado para voltar à fila
         video.onended = function() {{
             video.pause();
             fetch('{URL_STATUS}', {{
@@ -120,18 +121,6 @@ elif comando == "play":
                 window.location.reload();
             }});
         }};
-
-        // Vigia em tempo real se o prestador mandar um clipe ou interromper a música a meio
-        setInterval(function() {{
-            fetch('{URL_STATUS}?nocache=' + Date.now())
-                .then(response => response.json())
-                .then(data => {{
-                    if (data && data.comando && data.comando !== "play" && data.comando !== "aguardando_play") {{
-                        video.pause();
-                        window.location.reload();
-                    }}
-                }}).catch(err => console.log(err));
-        }}, 2000);
     </script>
     """
     components.html(player_karaoke_html, height=750)
@@ -269,18 +258,6 @@ else:
                         v.muted = !v.muted;
                         btnAudio.innerText = v.muted ? "🔇" : "🔊";
                     }}
-
-                    // Vigia em tempo real se o prestador mandou iniciar uma música de karaoke
-                    setInterval(function() {{
-                        fetch('{URL_STATUS}?nocache=' + Date.now())
-                            .then(response => response.json())
-                            .then(data => {{
-                                if (data && data.comando && data.comando !== "clipe") {{
-                                    v.pause();
-                                    window.location.reload();
-                                }}
-                            }}).catch(err => console.log(err));
-                    }}, 2000);
                 </script>
             </body>
             </html>
