@@ -156,7 +156,7 @@ else:
                     .mini-controls {{
                         position: absolute;
                         bottom: 5px;
-                        left: 20px;
+                        left: 50px;
                         right: 5px;
                         background: rgba(0, 0, 0, 0.85);
                         border: 1px solid #ffd700;
