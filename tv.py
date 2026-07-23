@@ -59,7 +59,7 @@ url_video = res_status.get("url_video")
 cantor_atual = res_status.get("cantor")
 musica_atual = res_status.get("musica")
 
-# SEGURANÇA: Se o Firebase estiver preso em "play" mas sem cantor/música válidos, força a limpeza imediata
+# SEGURANÇA: Se o Firebase estiver preso em "play" sem dados válidos, limpa de imediato
 if comando == "play" and (not cantor_atual or not musica_atual):
     requests.patch(URL_STATUS, json={"comando": "clipe", "cantor": "", "musica": ""})
     comando = "clipe"
@@ -67,7 +67,7 @@ if comando == "play" and (not cantor_atual or not musica_atual):
 if comando == "clipe" and url_video:
     st.session_state.ultimo_clipe_valido = url_video
 
-# 1. CONTAGEM DECRESCENTE (3, 2, 1, 0) E SALTO AUTOMÁTICO PARA O VÍDEO
+# 1. CONTAGEM DECRESCENTE (3, 2, 1, 0)
 if comando == "aguardando_play":
     st.markdown(f"""
         <div style='text-align:center; padding:80px; color:white;'>
@@ -87,7 +87,7 @@ if comando == "aguardando_play":
     requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 2. EXECUÇÃO DO VÍDEO DE KARAOKE (TELA CHEIA, SOM ATIVO E SAÍDA AUTOMÁTICA AO TERMINAR)
+# 2. EXECUÇÃO DO VÍDEO DE KARAOKE (TELA CHEIA E FORÇAGEM DE SAÍDA VIA JS DIRETO)
 elif comando == "play":
     player_karaoke_html = f"""
     <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99999;">
@@ -101,17 +101,17 @@ elif comando == "play":
     </div>
     <script>
         var video = document.getElementById('karaokeVideo');
-        
         video.muted = false;
+        
         video.play().catch(error => {{
-            console.log("Erro no autoplay com som, a tentar reativar:", error);
+            console.log("Erro no autoplay, a reativar:", error);
             video.muted = true;
             video.play();
             setTimeout(() => {{ video.muted = false; }}, 500);
         }});
 
-        video.onended = function() {{
-            video.pause();
+        // Método ultra-garantido: Ouve o fim do vídeo e também monitoriza o tempo atual vs duração
+        function sairDoKaraoke() {{
             fetch('{URL_STATUS}', {{
                 method: 'PATCH',
                 headers: {{ 'Content-Type': 'application/json' }},
@@ -122,10 +122,19 @@ elif comando == "play":
                     "musica": ""
                 }})
             }}).then(() => {{
-                window.location.reload();
+                window.location.href = window.location.href.split('?')[0] + '?prestador={slug}';
             }}).catch(() => {{
                 window.location.reload();
             }});
+        }}
+
+        video.onended = sairDoKaraoke;
+
+        // Segurança caso o onended falhe: dispara quando faltar menos de 0.5s para o fim
+        video.ontimeupdate = function() {{
+            if (video.duration && (video.duration - video.currentTime < 0.5)) {{
+                sairDoKaraoke();
+            }}
         }};
     </script>
     """
