@@ -59,7 +59,6 @@ url_video = res_status.get("url_video")
 cantor_atual = res_status.get("cantor")
 musica_atual = res_status.get("musica")
 
-# SEGURANÇA: Se o Firebase estiver preso em "play" sem dados válidos, limpa de imediato
 if comando == "play" and (not cantor_atual or not musica_atual):
     requests.patch(URL_STATUS, json={"comando": "clipe", "cantor": "", "musica": ""})
     comando = "clipe"
@@ -87,7 +86,7 @@ if comando == "aguardando_play":
     requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 2. EXECUÇÃO DO VÍDEO DE KARAOKE (TELA CHEIA E FORÇAGEM DE SAÍDA VIA JS DIRETO)
+# 2. EXECUÇÃO DO VÍDEO DE KARAOKE
 elif comando == "play":
     player_karaoke_html = f"""
     <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99999;">
@@ -110,8 +109,12 @@ elif comando == "play":
             setTimeout(() => {{ video.muted = false; }}, 500);
         }});
 
-        // Método ultra-garantido: Ouve o fim do vídeo e também monitoriza o tempo atual vs duração
+        let jaSaiu = false;
+
         function sairDoKaraoke() {{
+            if (jaSaiu) return;
+            jaSaiu = true;
+
             fetch('{URL_STATUS}', {{
                 method: 'PATCH',
                 headers: {{ 'Content-Type': 'application/json' }},
@@ -122,7 +125,7 @@ elif comando == "play":
                     "musica": ""
                 }})
             }}).then(() => {{
-                window.location.href = window.location.href.split('?')[0] + '?prestador={slug}';
+                window.location.href = window.location.href.split('?')[0] + '?prestador={slug}&nocache=' + new Date().getTime();
             }}).catch(() => {{
                 window.location.reload();
             }});
@@ -130,9 +133,8 @@ elif comando == "play":
 
         video.onended = sairDoKaraoke;
 
-        // Segurança caso o onended falhe: dispara quando faltar menos de 0.5s para o fim
         video.ontimeupdate = function() {{
-            if (video.duration && (video.duration - video.currentTime < 0.5)) {{
+            if (video.duration && (video.duration - video.currentTime < 0.4)) {{
                 sairDoKaraoke();
             }}
         }};
