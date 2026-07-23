@@ -86,7 +86,7 @@ if comando == "aguardando_play":
     requests.patch(URL_STATUS, json={"comando": "play"})
     st.rerun()
 
-# 2. EXECUÇÃO DO VÍDEO DE KARAOKE
+# 2. EXECUÇÃO DO VÍDEO DE KARAOKE (SEM LOOP)
 elif comando == "play":
     player_karaoke_html = f"""
     <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99999;">
@@ -101,6 +101,7 @@ elif comando == "play":
     <script>
         var video = document.getElementById('karaokeVideo');
         video.muted = false;
+        video.loop = false;  // Garante explicitamente que não repete
         
         video.play().catch(error => {{
             console.log("Erro no autoplay, a reativar:", error);
@@ -134,7 +135,8 @@ elif comando == "play":
         video.onended = sairDoKaraoke;
 
         video.ontimeupdate = function() {{
-            if (video.duration && (video.duration - video.currentTime < 0.4)) {{
+            // Dispara um pouco antes do término real para evitar travamentos ou repetição em loop do player do navegador
+            if (video.duration && (video.duration - video.currentTime < 0.5)) {{
                 sairDoKaraoke();
             }}
         }};
