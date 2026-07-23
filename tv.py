@@ -3,7 +3,6 @@ import requests
 
 st.set_page_config(page_title="Tela Karaoke", layout="wide", initial_sidebar_state="collapsed")
 
-# Ocultar elementos visuais padrão do Streamlit para parecer um player de TV limpo
 st.markdown("""
     <style>
         #MainMenu {visibility: hidden;}
@@ -41,21 +40,29 @@ else:
     cantor = dados.get("cantor", "")
     musica = dados.get("musica", "")
     
-    # Se o comando for "parar", "aguardando_play" ou não houver vídeo, mostra a tela de espera
-    if comando in ["parar", "aguardando_play"] or not url_video:
-        st.markdown("""
+    # Se explicitamente mandou parar ou se não há URL de vídeo válida, mostra a espera
+    if comando == "parar" or not url_video:
+        st.markdown(f"""
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #0e1117; color: white; text-align: center;">
                 <h1 style="font-size: 4rem; color: #ffd700; margin-bottom: 10px;">🎤 GRUPO FF KARAOKE</h1>
                 <p style="font-size: 1.8rem; color: #aaa;">A aguardar o próximo cantor...</p>
+                <p style="font-size: 0.9rem; color: #444; position: absolute; bottom: 10px;">Estado Firebase - Comando: {comando} | URL: {'Sim' if url_video else 'Não'}</p>
             </div>
             <script>
-                setTimeout(function(){
-                    window.location.reload();
-                }, 3000);
+                setInterval(function() {{
+                    fetch("{url_status}")
+                        .then(response => response.json())
+                        .then(data => {{
+                            // Se houver um comando novo ou um URL de vídeo válido, recarrega a página para tocar
+                            if (data.url_video && data.url_video !== "" && data.comando !== "parar") {{
+                                window.location.reload();
+                            }}
+                        }});
+                }}, 2000);
             </script>
         """, unsafe_allow_html=True)
     else:
-        # Exibe o vídeo de forma estável sem piscar (URL injetada de forma segura fora das chaves do JS)
+        # Exibe o vídeo quando houver dados válidos
         html_content = f"""
             <div style="position: absolute; top: 20px; left: 30px; z-index: 999; background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 8px; border: 1px solid #ffd700;">
                 <h3 style="color: #ffd700; margin: 0;">🎤 A Cantar: {cantor}</h3>
@@ -72,11 +79,11 @@ else:
                     fetch("{url_status}")
                         .then(response => response.json())
                         .then(data => {{
-                            if (data.comando === "parar" || data.comando === "aguardando_play" || !data.url_video) {{
+                            if (data.comando === "parar" || !data.url_video) {{
                                 window.location.reload();
                             }}
                         }});
-                }}, 3000);
+                }}, 2000);
             </script>
         """
         st.markdown(html_content, unsafe_allow_html=True)
