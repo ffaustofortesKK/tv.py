@@ -66,7 +66,7 @@ if comando == "play" and (not cantor_atual or not musica_atual):
 if comando == "clipe" and url_video:
     st.session_state.ultimo_clipe_valido = url_video
 
-# 0. TRATAMENTO DO COMANDO PARAR / ENCERRAR (Corrigido para limpar o vídeo e respeitar a paragem)
+# 0. TRATAMENTO DO COMANDO PARAR / ENCERRAR
 if comando == "parar":
     st.markdown("""
         <div style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: black; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 99999;">
@@ -75,7 +75,6 @@ if comando == "parar":
         </div>
     """, unsafe_allow_html=True)
     
-    # Limpa o url_video no Firebase para garantir que o player para de vez e não faz reload automático para o clipe
     if url_video:
         requests.patch(URL_STATUS, json={"url_video": "", "cantor": "", "musica": ""})
         
