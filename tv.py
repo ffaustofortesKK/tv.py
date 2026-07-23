@@ -43,21 +43,20 @@ else:
     
     # Se o comando for "parar", "aguardando_play" ou não houver vídeo, mostra a tela de espera
     if comando in ["parar", "aguardando_play"] or not url_video:
-        st.markdown(f"""
+        st.markdown("""
             <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background-color: #0e1117; color: white; text-align: center;">
                 <h1 style="font-size: 4rem; color: #ffd700; margin-bottom: 10px;">🎤 GRUPO FF KARAOKE</h1>
                 <p style="font-size: 1.8rem; color: #aaa;">A aguardar o próximo cantor...</p>
             </div>
             <script>
-                // Atualiza a página automaticamente a cada 3 segundos apenas quando estiver em espera
                 setTimeout(function(){
                     window.location.reload();
                 }, 3000);
             </script>
         """, unsafe_allow_html=True)
     else:
-        # Exibe o vídeo de forma estável sem piscar
-        st.markdown(f"""
+        # Exibe o vídeo de forma estável sem piscar (URL injetada de forma segura fora das chaves do JS)
+        html_content = f"""
             <div style="position: absolute; top: 20px; left: 30px; z-index: 999; background: rgba(0,0,0,0.8); padding: 10px 20px; border-radius: 8px; border: 1px solid #ffd700;">
                 <h3 style="color: #ffd700; margin: 0;">🎤 A Cantar: {cantor}</h3>
                 <p style="color: white; margin: 0; font-size: 1.2rem;">🎵 {musica}</p>
@@ -69,7 +68,6 @@ else:
                 </video>
             </div>
             <script>
-                // Verifica a cada 3 segundos se o prestador mandou parar, sem recarregar a página inteira abruptamente
                 setInterval(function() {{
                     fetch("{url_status}")
                         .then(response => response.json())
@@ -80,4 +78,5 @@ else:
                         }});
                 }}, 3000);
             </script>
-        """, unsafe_allow_html=True)
+        """
+        st.markdown(html_content, unsafe_allow_html=True)
